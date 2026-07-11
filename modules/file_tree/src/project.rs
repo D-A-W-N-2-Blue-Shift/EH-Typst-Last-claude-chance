@@ -96,9 +96,67 @@ const STANDARD_FILES: &[(&str, &str)] = &[
     ),
 ];
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProjectState {
+    Empty,
+    NonEngram,
+    Partial { missing: Vec<String> },
+    Engram,
+}
+
 /// Vérifie si un dossier est déjà un projet Engram_Hive (.engram/ présent).
 pub fn is_engram_project(root: &Path) -> bool {
     root.join(".engram").is_dir()
+}
+
+pub fn detect_project_state(root: &Path) -> ProjectState {
+    if is_engram_project(root) {
+        return ProjectState::Engram;
+    }
+    let mut has_visible = false;
+    let mut present_standard = Vec::new();
+    for dir in STANDARD_DIRS {
+        if root.join(dir).exists() {
+            present_standard.push(*dir);
+        }
+    }
+    if let Ok(rd) = std::fs::read_dir(root) {
+        for entry in rd.filter_map(|e| e.ok()) {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') {
+                continue;
+            }
+            has_visible = true;
+            break;
+        }
+    }
+    if !has_visible && present_standard.is_empty() {
+        return ProjectState::Empty;
+    }
+    if present_standard.is_empty() {
+        ProjectState::NonEngram
+    } else if present_standard.len() < STANDARD_DIRS.len() {
+        let missing = STANDARD_DIRS
+            .iter()
+            .filter(|dir| !root.join(dir).exists())
+            .map(|s| s.to_string())
+            .collect();
+        ProjectState::Partial { missing }
+    } else {
+        ProjectState::Engram
+    }
+}
+
+pub fn structure_plan() -> Vec<String> {
+    let mut out = Vec::new();
+    for d in STANDARD_DIRS {
+        out.push(format!("dossier: {}", d));
+    }
+    for (rel, _) in STANDARD_FILES {
+        out.push(format!("fichier: {}", rel));
+    }
+    out.push("dossier: .engram".into());
+    out
 }
 
 /// Crée un nouveau projet : dossier <location>/<name> + structure complète.

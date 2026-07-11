@@ -16,6 +16,89 @@ use crate::config::Config;
 use crate::context_menu::{self, MenuAction};
 use crate::stats::{self, ProjectTotals, TreeNode};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TreeFilter {
+    All,
+    Typst,
+    Text,
+    Images,
+    Data,
+    Other,
+}
+
+impl Default for TreeFilter {
+    fn default() -> Self {
+        Self::All
+    }
+}
+
+impl TreeFilter {
+    pub const ALL: &'static [Self] = &[
+        Self::All,
+        Self::Typst,
+        Self::Text,
+        Self::Images,
+        Self::Data,
+        Self::Other,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::All => "Tous",
+            Self::Typst => "Typst",
+            Self::Text => "Texte",
+            Self::Images => "Images",
+            Self::Data => "Données",
+            Self::Other => "Autres",
+        }
+    }
+
+    fn matches_path(self, path: &std::path::Path, is_dir: bool) -> bool {
+        if is_dir {
+            return true;
+        }
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        match self {
+            Self::All => true,
+            Self::Typst => ext == "typ",
+            Self::Text => matches!(
+                ext.as_str(),
+                "typ" | "md" | "txt" | "ron" | "toml" | "sql" | "csv" | "tsv" | "json"
+            ),
+            Self::Images => matches!(
+                ext.as_str(),
+                "png" | "jpg" | "jpeg" | "gif" | "webp" | "svg"
+            ),
+            Self::Data => matches!(
+                ext.as_str(),
+                "ron" | "toml" | "sql" | "csv" | "tsv" | "json"
+            ),
+            Self::Other => !matches!(
+                ext.as_str(),
+                "typ"
+                    | "md"
+                    | "txt"
+                    | "ron"
+                    | "toml"
+                    | "sql"
+                    | "csv"
+                    | "tsv"
+                    | "json"
+                    | "png"
+                    | "jpg"
+                    | "jpeg"
+                    | "gif"
+                    | "webp"
+                    | "svg"
+            ),
+        }
+    }
+}
+
 /// Intentions remontées par le rendu d'une frame.
 #[derive(Default)]
 pub struct TreeOutput {
@@ -32,6 +115,7 @@ pub struct TreeOutput {
 pub struct TreeUiState {
     pub expanded: HashSet<PathBuf>,
     pub selected: Option<PathBuf>,
+    pub filter: TreeFilter,
 }
 
 /// Couleurs résolues du thème, passées au rendu de l'arbre (le file_tree n'a
@@ -59,6 +143,18 @@ pub fn show(
     colors: &TreeColors,
 ) -> TreeOutput {
     let mut out = TreeOutput::default();
+
+    ui.horizontal(|ui| {
+        ui.weak("Filtre");
+        egui::ComboBox::from_id_salt("file_tree_filter")
+            .selected_text(state.filter.label())
+            .show_ui(ui, |ui| {
+                for filter in TreeFilter::ALL {
+                    ui.selectable_value(&mut state.filter, *filter, filter.label());
+                }
+            });
+    });
+    ui.add_space(4.0);
 
     // Racine : nom du projet + total global (+ goal projet si défini).
     let header = if cfg.simple.show_word_counts {
@@ -103,6 +199,9 @@ fn render_node(
     colors: &TreeColors,
     out: &mut TreeOutput,
 ) {
+    if !subtree_visible(node, state.filter) {
+        return;
+    }
     let step = cfg.vomi.indent_size as f32;
     let indent = depth as f32 * step;
     let row_height = cfg.vomi.row_height as f32;
@@ -177,6 +276,16 @@ fn render_node(
                 out,
             );
         }
+    }
+}
+
+fn subtree_visible(node: &TreeNode, filter: TreeFilter) -> bool {
+    if node.is_dir {
+        node.children
+            .iter()
+            .any(|child| subtree_visible(child, filter))
+    } else {
+        filter.matches_path(&node.path, false)
     }
 }
 

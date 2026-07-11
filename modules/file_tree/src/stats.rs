@@ -166,15 +166,6 @@ fn build_node(
             if fname.starts_with('.') || cfg.vomi.exclude_dirs.contains(&fname) {
                 continue;
             }
-            // Fichiers : on n'affiche que les extensions indexables.
-            if (entry.is_file()
-                || std::fs::symlink_metadata(&entry)
-                    .map(|m| m.file_type().is_symlink())
-                    .unwrap_or(false))
-                && !is_indexable(&entry, cfg)
-            {
-                continue;
-            }
             let child = build_node(&entry, files, cfg, inside_en_cours || is_en_cours);
             // Agrégation : 06_en_cours est un miroir, jamais compté.
             if !(child.is_en_cours || inside_en_cours || is_en_cours) {

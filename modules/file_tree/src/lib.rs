@@ -47,11 +47,35 @@ enum PickerPurpose {
 /// Boîtes de dialogue modales (nom uniquement — jamais de chemin libre :
 /// le choix de dossier passe par le sélecteur intégré, folder_picker).
 enum Dialog {
-    NewFile { parent: PathBuf, name: String },
-    NewFolder { parent: PathBuf, name: String },
-    Rename { target: PathBuf, name: String },
-    ConfirmDelete { target: PathBuf, non_empty: bool },
-    NewProjectName { location: PathBuf, name: String },
+    NewFile {
+        parent: PathBuf,
+        name: String,
+    },
+    NewFolder {
+        parent: PathBuf,
+        name: String,
+    },
+    Rename {
+        target: PathBuf,
+        name: String,
+    },
+    ConfirmDelete {
+        target: PathBuf,
+        non_empty: bool,
+    },
+    NewProjectName {
+        location: PathBuf,
+        name: String,
+    },
+    ProjectOpenPrompt {
+        root: PathBuf,
+        state: project::ProjectState,
+    },
+    StructurePreview {
+        root: PathBuf,
+        create: bool,
+        items: Vec<String>,
+    },
 }
 
 /// Un projet ouvert : racine, config, session, indexeur, modèle d'arbre.
@@ -116,7 +140,7 @@ impl FileTreeModule {
     // Cycle de vie projet.
     // -----------------------------------------------------------------------
 
-    fn open_project(&mut self, root: PathBuf, egui_ctx: &egui::Context) {
+    fn open_project(&mut self, root: PathBuf, egui_ctx: &egui::Context, scaffold: bool) {
         let root = match std::fs::canonicalize(&root) {
             Ok(r) => r,
             Err(e) => {
@@ -128,8 +152,7 @@ impl FileTreeModule {
                 return;
             }
         };
-        // .engram/ absent → nouveau projet : on génère la structure complète.
-        if !project::is_engram_project(&root) {
+        if scaffold {
             if let Err(e) = project::scaffold(&root) {
                 self.glados(e);
                 return;
@@ -207,7 +230,15 @@ impl FileTreeModule {
                 let purpose = chosen.purpose;
                 tracing::info!(target: "file_tree", "Dossier choisi : {}", folder.display());
                 match purpose {
-                    PickerPurpose::OpenProject => self.open_project(folder, ctx),
+                    PickerPurpose::OpenProject => match project::detect_project_state(&folder) {
+                        project::ProjectState::Engram => self.open_project(folder, ctx, false),
+                        state => {
+                            self.dialog = Some(Dialog::ProjectOpenPrompt {
+                                root: folder,
+                                state,
+                            });
+                        }
+                    },
                     PickerPurpose::NewProjectLocation => {
                         self.dialog = Some(Dialog::NewProjectName {
                             location: folder,
@@ -261,15 +292,29 @@ impl FileTreeModule {
     // -----------------------------------------------------------------------
 
     fn open_file(&mut self, path: &PathBuf) {
-        // Toujours canonique : le core déduplique les buffers par inode
-        // (06_en_cours/scene_1.typ et 05_texte/.../scene_1.typ = UN buffer).
-        match std::fs::canonicalize(path) {
-            Ok(canonical) => self.pending.push(ModuleResponse::OpenFile(canonical)),
-            Err(e) => self.glados(format!(
-                "Impossible d'ouvrir '{}' : {e}. Le fichier existait il y a une seconde, \
-                 je te le jure.",
-                path.display()
-            )),
+        let canonical = match std::fs::canonicalize(path) {
+            Ok(canonical) => canonical,
+            Err(e) => {
+                self.glados(format!(
+                    "Impossible d'ouvrir '{}' : {e}. Le fichier existait il y a une seconde, \
+                     je te le jure.",
+                    path.display()
+                ));
+                return;
+            }
+        };
+        match open_kind(&canonical) {
+            OpenKind::EngramText => self.pending.push(ModuleResponse::OpenFile(canonical)),
+            OpenKind::Okular => {
+                if let Err(e) = open_with_cmd("okular", &canonical) {
+                    self.glados(e);
+                }
+            }
+            OpenKind::DefaultApp => {
+                if let Err(e) = open_in_default_app(&canonical) {
+                    self.glados(e);
+                }
+            }
         }
     }
 
@@ -433,6 +478,10 @@ impl FileTreeModule {
                 self.pending
                     .push(ModuleResponse::OpenModuleWindow("cockpit".to_string()));
             }
+            PaletteAction::CockpitToggle => {
+                self.pending
+                    .push(ModuleResponse::ToggleModuleWindow("cockpit".to_string()));
+            }
             PaletteAction::WrapDriveOpen => {
                 self.pending.push(ModuleResponse::OpenModuleWindow(
                     "wrapdrive_panel".to_string(),
@@ -488,6 +537,14 @@ impl FileTreeModule {
             Dialog::Rename { .. } => "Renommer",
             Dialog::ConfirmDelete { .. } => "Supprimer ?",
             Dialog::NewProjectName { .. } => "Nouveau projet",
+            Dialog::ProjectOpenPrompt { .. } => "Ouvrir le dossier",
+            Dialog::StructurePreview { .. } => "Prévisualisation de la structure",
+        };
+        let dialog_root = match &dialog {
+            Dialog::ProjectOpenPrompt { root, .. } | Dialog::StructurePreview { root, .. } => {
+                Some(root.clone())
+            }
+            _ => None,
         };
 
         egui::Window::new(title)
@@ -522,19 +579,107 @@ impl FileTreeModule {
                             ui.label(format!("Supprimer '{name}' ? C'est définitif."));
                         }
                     }
+                    Dialog::ProjectOpenPrompt { root, state } => {
+                        ui.label(match state {
+                            project::ProjectState::Empty => "Ce dossier est vide.",
+                            project::ProjectState::NonEngram => {
+                                "Ce dossier n’est pas reconnu comme projet Engram."
+                            }
+                            project::ProjectState::Partial { .. } => {
+                                "Une structure partielle a été détectée."
+                            }
+                            project::ProjectState::Engram => "Projet Engram reconnu.",
+                        });
+                        ui.label(format!("Dossier : {}", root.display()));
+                    }
+                    Dialog::StructurePreview {
+                        root,
+                        create,
+                        items,
+                    } => {
+                        ui.label(format!(
+                            "{}",
+                            if *create {
+                                "Créer/compléter la structure suivante ?"
+                            } else {
+                                "Ouvrir tel quel ?"
+                            }
+                        ));
+                        ui.label(format!("Dossier : {}", root.display()));
+                        ui.add_space(4.0);
+                        egui::ScrollArea::vertical()
+                            .max_height(220.0)
+                            .show(ui, |ui| {
+                                for item in items.iter() {
+                                    ui.monospace(item);
+                                }
+                            });
+                    }
                 }
                 ui.add_space(6.0);
-                ui.horizontal(|ui| {
-                    let ok_label = if matches!(dialog, Dialog::ConfirmDelete { .. }) {
-                        "Supprimer"
-                    } else {
-                        "Valider"
-                    };
-                    if ui.button(ok_label).clicked() {
-                        validated = true;
+                ui.horizontal(|ui| match &dialog {
+                    Dialog::ProjectOpenPrompt { state, .. } => {
+                        let create_label = match state {
+                            project::ProjectState::Partial { .. } => "Compléter la structure",
+                            _ => "Créer la structure",
+                        };
+                        if ui.button(create_label).clicked() {
+                            let items = match state {
+                                project::ProjectState::Partial { missing } => {
+                                    missing.iter().map(|m| format!("manquant: {m}")).collect()
+                                }
+                                _ => project::structure_plan(),
+                            };
+                            self.dialog = Some(Dialog::StructurePreview {
+                                root: dialog_root.clone().unwrap_or_default(),
+                                create: true,
+                                items,
+                            });
+                            keep = false;
+                        }
+                        let open_label = match state {
+                            project::ProjectState::Partial { .. } => "Ouvrir tel quel",
+                            _ => "Ouvrir sans structure",
+                        };
+                        if ui.button(open_label).clicked() {
+                            if let Some(root) = dialog_root.clone() {
+                                self.open_project(root, ctx, false);
+                            }
+                            keep = false;
+                        }
+                        if ui.button("Annuler").clicked() {
+                            keep = false;
+                        }
                     }
-                    if ui.button("Annuler").clicked() {
-                        keep = false;
+                    Dialog::StructurePreview { .. } => {
+                        if ui.button("Créer la structure").clicked() {
+                            validated = true;
+                        }
+                        if ui.button("Ouvrir tel quel").clicked() {
+                            if let Some(root) = dialog_root.clone() {
+                                self.open_project(root, ctx, false);
+                            }
+                            keep = false;
+                        }
+                        if ui.button("Annuler").clicked() {
+                            keep = false;
+                        }
+                    }
+                    Dialog::ConfirmDelete { .. } => {
+                        if ui.button("Supprimer").clicked() {
+                            validated = true;
+                        }
+                        if ui.button("Annuler").clicked() {
+                            keep = false;
+                        }
+                    }
+                    _ => {
+                        if ui.button("Valider").clicked() {
+                            validated = true;
+                        }
+                        if ui.button("Annuler").clicked() {
+                            keep = false;
+                        }
                     }
                 });
             });
@@ -544,13 +689,13 @@ impl FileTreeModule {
         }
 
         if validated {
-            self.execute_dialog(dialog);
+            self.execute_dialog(dialog, ctx);
         } else if keep {
             self.dialog = Some(dialog);
         }
     }
 
-    fn execute_dialog(&mut self, dialog: Dialog) {
+    fn execute_dialog(&mut self, dialog: Dialog, ctx: &egui::Context) {
         match dialog {
             Dialog::NewFile { parent, name } => match project::new_file(&parent, &name) {
                 Ok(path) => {
@@ -595,6 +740,36 @@ impl FileTreeModule {
                     Ok(root) => self.pending_open = Some(root),
                     Err(e) => self.glados(e),
                 }
+            }
+            Dialog::ProjectOpenPrompt { root, state } => match state {
+                project::ProjectState::Engram => self.open_project(root, ctx, false),
+                project::ProjectState::Empty => {
+                    self.dialog = Some(Dialog::StructurePreview {
+                        root,
+                        create: true,
+                        items: project::structure_plan(),
+                    });
+                }
+                project::ProjectState::NonEngram => {
+                    self.dialog = Some(Dialog::StructurePreview {
+                        root,
+                        create: true,
+                        items: project::structure_plan(),
+                    });
+                }
+                project::ProjectState::Partial { missing } => {
+                    self.dialog = Some(Dialog::StructurePreview {
+                        root,
+                        create: true,
+                        items: missing
+                            .into_iter()
+                            .map(|m| format!("manquant: {m}"))
+                            .collect(),
+                    });
+                }
+            },
+            Dialog::StructurePreview { root, create, .. } => {
+                self.open_project(root, ctx, create);
             }
         }
     }
@@ -794,7 +969,7 @@ impl Module for FileTreeModule {
     /// via `draw_embedded`. Les réponses produites sont remontées tout de suite.
     fn update(&mut self, egui_ctx: &egui::Context, out: &mut Vec<ModuleResponse>) {
         if let Some(root) = self.pending_open.take() {
-            self.open_project(root, egui_ctx);
+            self.open_project(root, egui_ctx, true);
         }
         self.refresh_tree();
         out.append(&mut self.pending);
@@ -846,6 +1021,64 @@ impl Module for FileTreeModule {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OpenKind {
+    EngramText,
+    Okular,
+    DefaultApp,
+}
+
+fn open_kind(path: &Path) -> OpenKind {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if ext == "typ"
+        || matches!(
+            ext.as_str(),
+            "md" | "txt" | "ron" | "toml" | "sql" | "csv" | "tsv" | "json"
+        )
+    {
+        OpenKind::EngramText
+    } else if ext == "pdf" {
+        OpenKind::Okular
+    } else {
+        OpenKind::DefaultApp
+    }
+}
+
+fn open_in_default_app(path: &Path) -> Result<(), String> {
+    let cmd = if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    };
+    std::process::Command::new(cmd)
+        .arg(path)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| {
+            format!(
+                "Ouverture de {} avec {cmd} impossible : {e}",
+                path.display()
+            )
+        })
+}
+
+fn open_with_cmd(cmd: &str, path: &Path) -> Result<(), String> {
+    std::process::Command::new(cmd)
+        .arg(path)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| {
+            format!(
+                "Ouverture de {} avec {cmd} impossible : {e}",
+                path.display()
+            )
+        })
+}
+
 // ===========================================================================
 // CLI headless : les actions de la palette invocables depuis le terminal
 // (engram_hive tree new-file …, context add …, context clear).
@@ -855,7 +1088,7 @@ impl Module for FileTreeModule {
 fn cli_project_root() -> Result<PathBuf, String> {
     let config_dir = dirs::config_dir()
         .ok_or("Pas de dossier de config OS.")?
-        .join("engram_hive");
+        .join("engram_hive_typst");
     let module_dir = config_dir.join("modules").join("file_tree");
     project::load_last_project(&module_dir).ok_or_else(|| {
         "Aucun dernier projet connu. Lance l'app graphique et ouvre un projet d'abord.".into()
@@ -876,7 +1109,7 @@ pub fn cli_set_project(path: &str) -> Result<PathBuf, String> {
     }
     let config_dir = dirs::config_dir()
         .ok_or("Pas de dossier de config OS.")?
-        .join("engram_hive");
+        .join("engram_hive_typst");
     let module_dir = config_dir.join("modules").join("file_tree");
     std::fs::create_dir_all(&module_dir)
         .map_err(|e| format!("Impossible de créer {} : {e}", module_dir.display()))?;
