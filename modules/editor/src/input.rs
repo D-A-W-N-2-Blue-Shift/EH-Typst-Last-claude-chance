@@ -64,6 +64,11 @@ const DEFAULTS: &[(&str, &str)] = &[
     ("editor.search_prev", "Shift+F3"),
     ("editor.new_view", "Ctrl+Shift+N"),
     ("editor.toc", "Ctrl+Shift+O"),
+    ("editor.render", "Ctrl+Alt+R"),
+    ("editor.open_kate", "Ctrl+Alt+K"),
+    ("editor.open_okular", "Ctrl+Alt+O"),
+    ("editor.open_render_dir", "Ctrl+Alt+D"),
+    ("editor.goto_error", "Ctrl+Alt+E"),
     // Formatage Typst (autour de la sélection, ou du mot courant sinon).
     ("editor.bold", "Ctrl+B"),
     ("editor.italic", "Ctrl+I"),
@@ -183,6 +188,11 @@ pub struct InputOutput {
     pub toggle_focus: bool,
     pub new_view: bool,
     pub toggle_toc: bool,
+    pub render: bool,
+    pub open_kate: bool,
+    pub open_okular: bool,
+    pub open_render_dir: bool,
+    pub goto_error: bool,
 }
 
 impl EditorWindow {
@@ -231,6 +241,21 @@ impl EditorWindow {
         }
         if keybinds.consume(ctx, "editor.reload") {
             out.reload = true;
+        }
+        if keybinds.consume(ctx, "editor.render") {
+            out.render = true;
+        }
+        if keybinds.consume(ctx, "editor.open_kate") {
+            out.open_kate = true;
+        }
+        if keybinds.consume(ctx, "editor.open_okular") {
+            out.open_okular = true;
+        }
+        if keybinds.consume(ctx, "editor.open_render_dir") {
+            out.open_render_dir = true;
+        }
+        if keybinds.consume(ctx, "editor.goto_error") {
+            out.goto_error = true;
         }
         if keybinds.consume(ctx, "editor.focus_mode") {
             out.toggle_focus = true;

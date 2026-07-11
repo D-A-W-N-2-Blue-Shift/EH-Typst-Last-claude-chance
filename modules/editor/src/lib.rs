@@ -32,6 +32,7 @@ pub mod table_dialog;
 pub mod table_edit_assist;
 pub mod toc;
 pub mod typography;
+pub mod typst_render;
 pub mod viewport;
 pub mod wikilinks;
 
@@ -197,6 +198,22 @@ impl EditorWindow {
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| "sans nom".into())
     }
+
+    fn jump_to_line_col(&mut self, line: usize, column: usize) -> bool {
+        let buf = self.buffer.read_buf();
+        let line = line.saturating_sub(1);
+        if line >= buf.rope.len_lines() {
+            return false;
+        }
+        let base = buf.rope.line_to_char(line);
+        let col = column.saturating_sub(1);
+        self.cursor = (base + col).min(buf.rope.len_chars());
+        self.anchor = None;
+        self.pending_scroll = Some(line as f32);
+        self.scroll_cursor_into_view = true;
+        self.last_input = Instant::now();
+        true
+    }
 }
 
 // ===========================================================================
@@ -235,6 +252,8 @@ pub struct EditorModule {
     last_session_save: Instant,
     /// L'état focus global annoncé au core (pour ne pas spammer).
     announced_focus: bool,
+    /// Moteur Typst externe + cache de rendu.
+    typst: Option<typst_render::TypstRenderService>,
 }
 
 impl Default for EditorModule {
@@ -261,6 +280,7 @@ impl Default for EditorModule {
             session_dirty: false,
             last_session_save: Instant::now(),
             announced_focus: false,
+            typst: None,
         }
     }
 }
@@ -292,6 +312,7 @@ impl EditorModule {
                 return;
             }
         };
+        let render_shared = std::sync::Arc::clone(&shared);
         // Fichier déjà affiché → on donne le focus à sa fenêtre, pas de
         // doublon silencieux (Ctrl+Shift+N crée une seconde vue explicite).
         if restore.is_none() {
@@ -320,6 +341,7 @@ impl EditorModule {
             win.restore = Some((s.pos, s.size));
         }
         self.windows.push(win);
+        self.request_typst_render(&render_shared);
         self.session_dirty = true;
     }
 
@@ -413,9 +435,74 @@ impl EditorModule {
 
     fn save_buffer(&mut self, shared: &SharedBuffer) {
         let silence = Duration::from_secs(self.cfg.vomi.self_write_silence_secs.max(1));
-        let res = shared.write_buf().save(silence);
-        if let Err(e) = res {
-            self.glados(e);
+        let path = {
+            let mut buf = shared.write_buf();
+            if let Err(e) = buf.save(silence) {
+                self.glados(e);
+                return;
+            }
+            buf.path.clone()
+        };
+        if path
+            .extension()
+            .and_then(|s| s.to_str())
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("typ"))
+        {
+            if let Some(typst) = self.typst.as_mut() {
+                typst.request_render(shared);
+            }
+        }
+    }
+
+    fn typst_idle_render_tick(&mut self) {
+        let debounce = Duration::from_millis(500);
+        let due: Vec<SharedBuffer> = self
+            .windows
+            .iter()
+            .filter(|win| {
+                let buf = win.buffer.read_buf();
+                buf.path
+                    .extension()
+                    .and_then(|s| s.to_str())
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("typ"))
+                    && buf.dirty
+                    && !buf.external_change
+                    && win.last_input.elapsed() >= debounce
+            })
+            .map(|win| std::sync::Arc::clone(&win.buffer))
+            .collect();
+        for shared in due {
+            self.save_buffer(&shared);
+        }
+        if let Some(typst) = self.typst.as_mut() {
+            typst.tick();
+        }
+    }
+
+    fn request_typst_render(&mut self, shared: &SharedBuffer) {
+        if let Some(typst) = self.typst.as_mut() {
+            typst.request_render(shared);
+        }
+    }
+
+    fn typst_open_kate(&mut self, path: &Path) -> Result<(), String> {
+        match self.typst.as_ref() {
+            Some(typst) => typst.open_kate(path),
+            None => Err("Moteur Typst indisponible.".into()),
+        }
+    }
+
+    fn typst_open_okular(&mut self, path: &Path) -> Result<(), String> {
+        match self.typst.as_ref() {
+            Some(typst) => typst.open_last_valid_pdf(path),
+            None => Err("Moteur Typst indisponible.".into()),
+        }
+    }
+
+    fn typst_open_render_dir(&mut self, path: &Path) -> Result<(), String> {
+        match self.typst.as_ref() {
+            Some(typst) => typst.open_render_dir(path),
+            None => Err("Moteur Typst indisponible.".into()),
         }
     }
 
@@ -575,6 +662,7 @@ impl Module for EditorModule {
         }
         self.syntaxes = Some(highlight::Syntaxes::load());
         self.ctx = Some(ctx.clone());
+        self.typst = Some(typst_render::TypstRenderService::new(ctx.data_dir.clone()));
         // Session : les fichiers rouverts au lancement.
         let session = EditorSession::load(&self.cfg.module_config_dir);
         for w in session.windows {
@@ -599,6 +687,7 @@ impl Module for EditorModule {
         }
         self.poll_watcher();
         self.autosave();
+        self.typst_idle_render_tick();
 
         // --- Tour des fenêtres. ---
         let mut actions = WindowActions::default();
@@ -613,6 +702,7 @@ impl Module for EditorModule {
                 index,
                 glados,
                 last_focused,
+                typst,
                 ..
             } = self;
             // init() initialise toujours `syntaxes` avant le premier update ;
@@ -620,6 +710,9 @@ impl Module for EditorModule {
             // frame plutôt que de paniquer. Doctrine §5/§6 : zéro expect().
             if let Some(syn) = syntaxes.as_ref() {
                 for win in windows.iter_mut() {
+                    let typst_snapshot = typst
+                        .as_ref()
+                        .map(|service| service.snapshot_for(&win.canonical));
                     draw_window(
                         egui_ctx,
                         win,
@@ -629,6 +722,7 @@ impl Module for EditorModule {
                         syn,
                         fonts,
                         index,
+                        typst_snapshot,
                         glados,
                         last_focused,
                         &mut actions,
@@ -641,8 +735,26 @@ impl Module for EditorModule {
         for shared in actions.save {
             self.save_buffer(&shared);
         }
+        for shared in actions.request_render {
+            self.request_typst_render(&shared);
+        }
         for id in actions.new_view {
             self.open_second_view(id);
+        }
+        for path in actions.open_kate {
+            if let Err(e) = self.typst_open_kate(&path) {
+                self.glados(e);
+            }
+        }
+        for path in actions.open_okular {
+            if let Err(e) = self.typst_open_okular(&path) {
+                self.glados(e);
+            }
+        }
+        for path in actions.open_render_dir {
+            if let Err(e) = self.typst_open_render_dir(&path) {
+                self.glados(e);
+            }
         }
         for (name, valid) in actions.open_link {
             if valid {
@@ -742,6 +854,10 @@ struct WindowActions {
     save: Vec<SharedBuffer>,
     new_view: Vec<u64>,
     open_link: Vec<(String, bool)>,
+    open_kate: Vec<PathBuf>,
+    open_okular: Vec<PathBuf>,
+    open_render_dir: Vec<PathBuf>,
+    request_render: Vec<SharedBuffer>,
     glados: Vec<String>,
     session_dirty: bool,
     /// §7 — l'utilisateur a pressé Ctrl+Shift+P depuis un viewport éditeur ;
@@ -759,6 +875,7 @@ fn draw_window(
     syn: &highlight::Syntaxes,
     fonts: &FontBook,
     index: &WikilinkIndex,
+    typst_snapshot: Option<typst_render::TypstSnapshot>,
     glados: &mut Vec<String>,
     last_focused: &mut Option<u64>,
     actions: &mut WindowActions,
@@ -845,6 +962,31 @@ fn draw_window(
         let input_out = win.handle_input(ctx, cfg, keybinds, snippets, index);
         if input_out.save {
             actions.save.push(std::sync::Arc::clone(&win.buffer));
+        }
+        if input_out.render {
+            actions.save.push(std::sync::Arc::clone(&win.buffer));
+            actions
+                .request_render
+                .push(std::sync::Arc::clone(&win.buffer));
+        }
+        if input_out.open_kate {
+            actions.open_kate.push(win.canonical.clone());
+        }
+        if input_out.open_okular {
+            actions.open_okular.push(win.canonical.clone());
+        }
+        if input_out.open_render_dir {
+            actions.open_render_dir.push(win.canonical.clone());
+        }
+        if input_out.goto_error {
+            if let Some(snapshot) = typst_snapshot.as_ref() {
+                if let Some(err) = &snapshot.last_error {
+                    if let Some(line) = err.line {
+                        let col = err.column.unwrap_or(1);
+                        let _ = win.jump_to_line_col(line, col);
+                    }
+                }
+            }
         }
         if input_out.reload {
             let res = win.buffer.write_buf().reload();
@@ -946,6 +1088,7 @@ fn draw_window(
         if show_status {
             draw_status_bar(ctx, win, cfg);
         }
+        draw_typst_panel(ctx, win, typst_snapshot.as_ref(), actions, glados);
 
         // §2 — Formulaire frontmatter custom supprimé (décision brief 2/7/2026).
         // Les fiches personnage sont désormais éditées directement dans le
@@ -1198,6 +1341,90 @@ fn draw_status_bar(ctx: &egui::Context, win: &mut EditorWindow, cfg: &config::Co
             }
             if win.typewriter && !minimal {
                 ui.weak("⌨ typewriter");
+            }
+        });
+    });
+}
+
+fn draw_typst_panel(
+    ctx: &egui::Context,
+    win: &mut EditorWindow,
+    snapshot: Option<&typst_render::TypstSnapshot>,
+    actions: &mut WindowActions,
+    glados: &mut Vec<String>,
+) {
+    egui::TopBottomPanel::top(egui::Id::new(("editor_typst", win.id))).show(ctx, |ui| {
+        ui.horizontal_wrapped(|ui| {
+            ui.strong("Typst");
+            let available = snapshot.is_some_and(|s| s.engine_available);
+            if available {
+                ui.colored_label(
+                    egui::Color32::from_rgb(120, 255, 180),
+                    "Moteur : disponible",
+                );
+            } else {
+                ui.colored_label(egui::Color32::from_rgb(255, 120, 120), "Moteur : absent");
+            }
+            if let Some(ver) = snapshot.and_then(|s| s.engine_version.as_deref()) {
+                ui.monospace(ver);
+            }
+        });
+
+        if let Some(snapshot) = snapshot {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(format!("Dernier rendu : {:?}", snapshot.state));
+                if let Some(ms) = snapshot.last_duration_ms {
+                    ui.label(format!("Durée : {ms} ms"));
+                }
+                if let Some(pdf) = &snapshot.pdf {
+                    ui.monospace(pdf.display().to_string());
+                }
+            });
+            if let Some(err) = &snapshot.last_error {
+                ui.colored_label(
+                    egui::Color32::from_rgb(255, 120, 120),
+                    format!(
+                        "Erreur Typst : {}{}{}",
+                        err.file.display(),
+                        err.line.map(|l| format!(":{l}")).unwrap_or_default(),
+                        err.column.map(|c| format!(":{c}")).unwrap_or_default()
+                    ),
+                );
+                ui.weak(err.message.as_str());
+            }
+        }
+
+        ui.horizontal_wrapped(|ui| {
+            if ui.button("Relancer le rendu").clicked() {
+                actions.save.push(std::sync::Arc::clone(&win.buffer));
+                actions
+                    .request_render
+                    .push(std::sync::Arc::clone(&win.buffer));
+            }
+            if ui.button("Ouvrir dans Kate").clicked() {
+                actions.open_kate.push(win.canonical.clone());
+            }
+            if ui.button("Ouvrir dans Okular").clicked() {
+                actions.open_okular.push(win.canonical.clone());
+            }
+            if ui.button("Ouvrir le dossier de rendu").clicked() {
+                actions.open_render_dir.push(win.canonical.clone());
+            }
+            if ui.button("Aller à l'erreur").clicked() {
+                if let Some(snapshot) = snapshot {
+                    if let Some(err) = &snapshot.last_error {
+                        if let Some(line) = err.line {
+                            let col = err.column.unwrap_or(1);
+                            let _ = win.jump_to_line_col(line, col);
+                        } else {
+                            glados.push("Erreur Typst sans position exploitable.".into());
+                        }
+                    } else {
+                        glados.push("Aucune erreur Typst récente à cibler.".into());
+                    }
+                } else {
+                    glados.push("Moteur Typst indisponible.".into());
+                }
             }
         });
     });
