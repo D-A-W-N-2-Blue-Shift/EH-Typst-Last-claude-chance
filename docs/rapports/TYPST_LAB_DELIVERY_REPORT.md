@@ -2,14 +2,53 @@
 
 ## Résultat global
 
-Le fork `EH-Typst-Labs` utilise maintenant Typst comme moteur de rendu externe
-intégré à l’éditeur. Le code compile, la suite de tests passe, et les fichiers
-de démonstration Typst compilent avec un root de projet partagé.
+Le fork `EH-Typst-Labs` est livré avec:
+
+- un moteur Typst externe branché dans l’éditeur;
+- des actions visibles pour Kate, Okular, le rendu et le dossier de rendu;
+- un cockpit neutralisé par défaut et mémorisé dans sa config locale;
+- un file tree qui montre les fichiers utiles et laisse choisir le filtre;
+- un flux de création de projet qui demande confirmation avant scaffolding;
+- un corpus de démonstration Typst livré dans `demo_typst/`;
+- une documentation d’usage Stream Deck;
+- des tests Rust et des compilations Typst validés.
+
+Le point important est la distinction entre trois niveaux:
+
+1. `Livré dans le code`
+2. `Documenté`
+3. `Exécuté et observé`
+
+À ce stade, les niveaux 1 et 2 sont complets sur le périmètre stabilisation + pipeline Typst + corpus de démo. Le niveau 3 est complet pour les vérifications automatisées et les compilations Typst, mais pas pour une session GUI interactive longue.
+
+## Complétude consolidée
+
+| Domaine | Livré | Documenté | Vérifié |
+|---|---|---:|---:|
+| Moteur Typst externe | Oui | Oui | Oui |
+| Compilateur `typst` détecté | Oui | Oui | Oui |
+| Rendu automatique différé | Oui | Oui | Oui par code, non par longue session GUI |
+| Ouverture dans Kate | Oui | Oui | Code branché, non exécuté ici |
+| Ouverture dans Okular | Oui | Oui | Code branché, non exécuté ici |
+| Ouverture du dossier de rendu | Oui | Oui | Code branché, non exécuté ici |
+| Saut vers erreur ligne/colonne | Oui | Oui | Code branché, non exécuté ici |
+| Cockpit désactivé par défaut | Oui | Oui | Oui par code |
+| Cockpit mémorisé dans sa config Typst | Oui | Oui | Oui par code |
+| Tree avec tous les fichiers visibles | Oui | Oui | Oui par code |
+| Filtre par défaut `Tous` | Oui | Oui | Oui par code |
+| Demande avant scaffolding | Oui | Oui | Oui par code |
+| Table Markdown supprimée du flux actif | Oui | Oui | Oui par recherche de code |
+| Tableau Typst livrable | Oui | Oui | Oui par code |
+| Corpus de démo `demo_typst/` | Oui | Oui | Oui par compilation Typst |
+| Documentation Stream Deck | Oui | Oui | Oui |
+| Rapport de livraison | Oui | Oui | Oui |
+| DB2 | Non commencé | Oui (hors phase) | Non |
+| Timeline | Non commencé | Oui (hors phase) | Non |
 
 ## Ce qui est livré
 
 - moteur Typst externe branché dans `modules/editor/src/typst_render.rs`
-- intégration éditeur pour :
+- intégration éditeur pour:
   - sauvegarde suivie d’un rendu Typst
   - rendu différé après modification
   - ouverture dans Kate
@@ -21,6 +60,9 @@ de démonstration Typst compilent avec un root de projet partagé.
 - fiche étalon Svetlana convertie en Typst
 - chapitres réels convertis en Typst
 - doc Stream Deck `docs/TYPST_STREAMDECK_KEYS.md`
+- cockpit désactivé par défaut avec bascule persistée
+- file tree élargi à tous les fichiers utiles avec filtre `Tous`
+- dialogue explicite avant création/complétion de structure
 
 ## Preuves exécutées
 
@@ -172,12 +214,27 @@ Constat:
 - aucun fichier du projet Markdown original n’a été modifié dans ce fork
 - les changements sont confinés au dépôt `EH-Typst-Labs`
 
-### 14. Commit `220ae17`
+### 14. Hygiène Git
+
+Constat:
+
+- le dossier `copie manuscrit to convert/` est maintenant ignoré par `.gitignore`
+- il reste visible sur le disque pour les tests locaux mais n’encombre plus `git status`
+
+### 15. Commits de livraison
+
+Commits produits pendant cette phase:
+
+- `5750008` - `feat(cockpit): default closed and toggle visibility`
+- `d29a086` - `feat(file-tree): show all files and gate project scaffolding`
+- `4c1294f` - `feat(typst): add rendering pipeline and demo corpus`
+
+### 16. Commit `220ae17`
 
 Le commit `220ae17` reste un jalon historique. Le fork courant le dépasse
 désormais avec le moteur Typst branché et le dossier de démo livré.
 
-### 15. `modules/cockpit/src/md_mirror.rs`
+### 17. `modules/cockpit/src/md_mirror.rs`
 
 Rôle actuel:
 
@@ -191,7 +248,7 @@ Produit-il encore du Markdown ?
 
 - non, le miroir manipulé ici est en `.typ`
 
-### 16. Boutons et actions
+### 18. Boutons et actions
 
 Actions branchées dans le code:
 
@@ -206,7 +263,7 @@ Statut:
 - `PASS` sur le câblage du code
 - `NOT EXECUTED` en interaction GUI dans cette session
 
-### 17. DB2
+### 19. DB2
 
 Constat:
 
@@ -233,4 +290,4 @@ Constat:
 - l’UI complète n’a pas été lancée dans cette session
 - les actions Kate/Okular n’ont pas été exécutées en interaction graphique ici
 - la mesure `typst watch` est un relevé ponctuel, pas une longue session
-
+- les suppressions de docs héritées visibles dans `git status` ne sont pas incluses dans cette livraison
