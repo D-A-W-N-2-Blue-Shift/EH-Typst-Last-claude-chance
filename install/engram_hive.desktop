@@ -1,11 +1,11 @@
 [Desktop Entry]
 Type=Application
-Name=Engram Hive
-GenericName=Éditeur de prose
-Comment=We don't write. We purge. Ink is {un}digested pain.
+Name=Engram Hive — Typst Lab
+GenericName=Éditeur Typst
+Comment=Fork expérimental Typst avec rendu local immédiat.
 Exec=engram_hive
 Icon=engram_hive
 Terminal=false
 Categories=Office;TextEditor;Utility;
-MimeType=text/markdown;text/plain;
+MimeType=text/plain;text/typst;text/markdown;
 StartupNotify=true

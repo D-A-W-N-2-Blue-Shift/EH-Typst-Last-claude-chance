@@ -14,6 +14,8 @@ use std::path::{Path, PathBuf};
 
 use engram_core::{CoreContext, Module, ModuleResponse, RenderMode};
 
+mod config;
+
 #[derive(Default, PartialEq, Eq, Clone, Copy)]
 enum Category {
     #[default]
@@ -110,6 +112,7 @@ pub struct CockpitModule {
     /// Demande de redémarrage du programme (bouton reboot), posée dans `draw`
     /// et consommée dans `update` qui a le canal `out` vers le core.
     restart_requested: bool,
+    runtime_cfg: config::Config,
     status: Status,
     /// Fenêtre masquée (Steve a cliqué sur la croix) : on la garde fermée
     /// jusqu'à ce qu'une commande explicite la rouvre. v1 : pas encore de
@@ -127,6 +130,7 @@ impl Default for CockpitModule {
             theme_expert: engram_core::theme::ThemeExpert::default(),
             theme_apply_pending: false,
             restart_requested: false,
+            runtime_cfg: config::Config::default(),
             status: Status::default(),
             // Doctrine "fenêtre à la demande" : on ne s'impose pas au tiling
             // de l'utilisateur au démarrage. Cockpit s'ouvre sur action
@@ -144,6 +148,12 @@ impl Module for CockpitModule {
     fn init(&mut self, ctx: &CoreContext) -> Result<(), String> {
         self.config_dir = ctx.config_dir.clone();
         self.licorne = ctx.licorne.clone();
+        let (cfg, errs) = config::Config::load(&self.config_dir);
+        self.runtime_cfg = cfg;
+        self.closed = self.runtime_cfg.closed;
+        for e in errs {
+            self.status.warn(e);
+        }
         self.load_theme();
         Ok(())
     }
@@ -164,6 +174,7 @@ impl Module for CockpitModule {
         egui_ctx.show_viewport_immediate(viewport_id, builder, |ctx, _class| {
             if ctx.input(|i| i.viewport().close_requested()) {
                 self.closed = true;
+                self.persist_visibility();
                 return;
             }
             // §7 — Ctrl+Shift+P depuis la fenêtre Cockpit.
@@ -215,6 +226,13 @@ impl Module for CockpitModule {
         if let engram_core::CoreEvent::OpenModuleWindowRequested(name) = event {
             if name == self.name() {
                 self.closed = false;
+                self.persist_visibility();
+            }
+        }
+        if let engram_core::CoreEvent::ToggleModuleWindowRequested(name) = event {
+            if name == self.name() {
+                self.closed = !self.closed;
+                self.persist_visibility();
             }
         }
     }
@@ -223,6 +241,13 @@ impl Module for CockpitModule {
 }
 
 impl CockpitModule {
+    fn persist_visibility(&mut self) {
+        self.runtime_cfg.closed = self.closed;
+        if let Err(e) = self.runtime_cfg.save(&self.config_dir) {
+            self.status.warn(e);
+        }
+    }
+
     fn load_theme(&mut self) {
         let mut errs = Vec::new();
         let simple: engram_core::theme::ThemeConfig = self.licorne.section("theme", &mut errs);

@@ -14,6 +14,8 @@ pub enum PaletteAction {
     BackupShowDir,
     /// Ouvre la fenêtre Cockpit (édition UI des RON).
     CockpitOpen,
+    /// Bascule l'affichage du cockpit.
+    CockpitToggle,
     /// Ouvre la fenêtre WrapDrive (Analyse rapide + Dialogue projet).
     WrapDriveOpen,
     /// Ouvre la fenêtre Timeline (vue chronologique).
@@ -39,6 +41,7 @@ impl PaletteAction {
         Self::BackupNow,
         Self::BackupShowDir,
         Self::CockpitOpen,
+        Self::CockpitToggle,
         Self::WrapDriveOpen,
         Self::TimelineOpen,
         Self::TimelineChronology,
@@ -59,6 +62,7 @@ impl PaletteAction {
             Self::BackupNow => "backup: sauvegarder maintenant",
             Self::BackupShowDir => "backup: afficher le dossier de sauvegarde",
             Self::CockpitOpen => "cockpit: ouvrir la fenêtre de configuration",
+            Self::CockpitToggle => "cockpit: afficher / masquer",
             Self::WrapDriveOpen => "wrapdrive: ouvrir le panel (Analyse / Dialogue projet)",
             Self::TimelineOpen => "timeline: ouvrir la vue",
             Self::TimelineChronology => "timeline: chronologie",
@@ -80,6 +84,7 @@ impl PaletteAction {
             Self::BackupNow => "backup_now",
             Self::BackupShowDir => "backup_show_dir",
             Self::CockpitOpen => "open_cockpit",
+            Self::CockpitToggle => "toggle_cockpit",
             Self::WrapDriveOpen => "open_wrapdrive",
             Self::TimelineOpen => "open_timeline",
             Self::TimelineChronology => "open_timeline_chronology",
@@ -101,6 +106,7 @@ impl PaletteAction {
             "backup_now" => Self::BackupNow,
             "backup_show_dir" => Self::BackupShowDir,
             "open_cockpit" => Self::CockpitOpen,
+            "toggle_cockpit" => Self::CockpitToggle,
             "open_wrapdrive" => Self::WrapDriveOpen,
             "open_timeline" => Self::TimelineOpen,
             "open_timeline_chronology" => Self::TimelineChronology,

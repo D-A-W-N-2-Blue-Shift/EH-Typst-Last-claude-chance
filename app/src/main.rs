@@ -171,7 +171,7 @@ fn main() {
             let msg = format!(
                 "Module '{name}' enregistré mais ABSENT de la section modules de \
                  engram.ron — donc pas chargé. Ajoute \"{name}\" à `enabled` dans \
-                 ~/.config/engram_hive/engram.ron."
+                 ~/.config/engram_hive_typst/engram.ron."
             );
             tracing::warn!("{msg}");
             eprintln!("{msg}");
@@ -213,18 +213,18 @@ fn main() {
     };
     // Icône d'application : absente ⇒ icône système par défaut, pas de crash.
     let mut viewport = egui::ViewportBuilder::default()
-        .with_title("Engram Hive — Core")
+        .with_title("Engram Hive — Typst Lab — Core")
         .with_inner_size([641.0, 641.0]);
     if let Some(icon) = assets::load_icon() {
         viewport = viewport.with_icon(icon);
     }
-    viewport = viewport.with_title(format!("Engram Hive {APP_VERSION} — Core"));
+    viewport = viewport.with_title(format!("Engram Hive — Typst Lab {APP_VERSION} — Core"));
     let options = eframe::NativeOptions {
         viewport,
         ..Default::default()
     };
     if let Err(e) = eframe::run_native(
-        "engram_hive",
+        "Engram Hive — Typst Lab",
         options,
         Box::new(move |cc| {
             engram_core::theme::apply_palette(&cc.egui_ctx, &theme_palette);
@@ -337,6 +337,11 @@ impl HiveApp {
                 tracing::debug!(target: "core", "Palette demandée depuis un viewport enfant.");
                 self.palette.open();
             }
+            ModuleResponse::ToggleModuleWindow(name) => {
+                tracing::info!(target: "core", "Basculer la fenêtre du module '{name}'.");
+                self.queued_events
+                    .push(CoreEvent::ToggleModuleWindowRequested(name));
+            }
             ModuleResponse::OpenTimelineChronology => {
                 tracing::info!(target: "core", "Vue chronologie demandée.");
                 self.queued_events
@@ -412,6 +417,9 @@ impl HiveApp {
             file_tree::palette::PaletteAction::CockpitOpen => {
                 self.process(ModuleResponse::OpenModuleWindow("cockpit".to_string()));
             }
+            file_tree::palette::PaletteAction::CockpitToggle => {
+                self.process(ModuleResponse::ToggleModuleWindow("cockpit".to_string()));
+            }
             file_tree::palette::PaletteAction::WrapDriveOpen => {
                 self.process(ModuleResponse::OpenModuleWindow(
                     "wrapdrive_panel".to_string(),
@@ -460,7 +468,7 @@ impl HiveApp {
                         tint,
                     );
                 }
-                ui.heading(format!("Engram Hive {APP_VERSION}"));
+                ui.heading(format!("Engram Hive — Typst Lab {APP_VERSION}"));
                 ui.weak(format!("Core actif — {} module(s)", self.modules.len()));
                 ui.separator();
                 egui::ScrollArea::vertical()

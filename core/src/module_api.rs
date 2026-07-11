@@ -71,6 +71,9 @@ pub enum ModuleResponse {
     /// directement ; aucun module ne l'héberge.
     OpenPaletteRequested,
 
+    /// Demande de basculer la visibilité d'une fenêtre de module propre.
+    ToggleModuleWindow(String),
+
     /// §3.4 — La palette a demandé la vue chronologique de la timeline
     /// (« timeline: chronologie ») : liste triée par date_sortable des
     /// événements des deux fichiers globaux. Le core relaie au module
@@ -115,6 +118,10 @@ pub enum CoreEvent {
     /// viewport propre filtre sur son nom et ouvre sa fenêtre si match.
     OpenModuleWindowRequested(String),
 
+    /// Relais d'un ModuleResponse::ToggleModuleWindow. Chaque module à
+    /// viewport propre filtre sur son nom et bascule son état visible.
+    ToggleModuleWindowRequested(String),
+
     /// §3.4 — Relais de la demande "vue chronologique" de la timeline.
     /// Le module timeline s'ouvre et bascule sur la vue chronologie.
     TimelineChronologyRequested,
@@ -124,9 +131,9 @@ pub enum CoreEvent {
 /// Zéro chemin absolu hardcodé : tout vient de la crate `dirs`.
 #[derive(Debug, Clone)]
 pub struct CoreContext {
-    /// ~/.config/engram_hive
+    /// ~/.config/engram_hive_typst
     pub config_dir: PathBuf,
-    /// ~/.local/share/engram_hive
+    /// ~/.local/share/engram_hive_typst
     pub data_dir: PathBuf,
     /// Thème global résolu (couleurs + polices), source unique d'apparence.
     /// Chargé depuis theme.ron + section "theme" de engram.ron (legacy
@@ -156,10 +163,10 @@ impl CoreContext {
                 "Impossible de trouver le dossier de configuration de l'OS. \
                     Ton environnement est plus cassé que prévu.",
             )?
-            .join("engram_hive");
+            .join("engram_hive_typst");
         let data_dir = dirs::data_dir()
             .ok_or("Impossible de trouver le dossier de données de l'OS.")?
-            .join("engram_hive");
+            .join("engram_hive_typst");
         std::fs::create_dir_all(&config_dir)
             .map_err(|e| format!("Impossible de créer {} : {e}", config_dir.display()))?;
         std::fs::create_dir_all(&data_dir)
