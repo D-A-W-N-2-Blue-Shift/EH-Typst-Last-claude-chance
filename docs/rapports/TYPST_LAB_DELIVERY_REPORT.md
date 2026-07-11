@@ -28,6 +28,7 @@ Le point important est la distinction entre trois niveaux:
 | Moteur Typst externe | Oui | Oui | Oui |
 | Compilateur `typst` détecté | Oui | Oui | Oui |
 | Rendu automatique différé | Oui | Oui | Oui par code, non par longue session GUI |
+| Recherche corpus via palette | Oui | Oui | Oui par code |
 | Ouverture dans Kate | Oui | Oui | Code branché, non exécuté ici |
 | Ouverture dans Okular | Oui | Oui | Code branché, non exécuté ici |
 | Ouverture du dossier de rendu | Oui | Oui | Code branché, non exécuté ici |
@@ -63,6 +64,7 @@ Le point important est la distinction entre trois niveaux:
 - cockpit désactivé par défaut avec bascule persistée
 - file tree élargi à tous les fichiers utiles avec filtre `Tous`
 - dialogue explicite avant création/complétion de structure
+- recherche corpus locale branchée sur la palette globale
 
 ## Preuves exécutées
 
@@ -267,7 +269,9 @@ Statut:
 
 Constat:
 
-- DB2 n’a pas été touchée
+- la spécification DB2 de référence est [`/home/azot/Sharashkas-B/DBv2-EH4.md`](/home/azot/Sharashkas-B/DBv2-EH4.md)
+- aucun schéma DB2 n’a été implémenté dans ce fork; la recherche corpus s’appuie encore sur l’index V1 existant (`files`, `wikilinks`, `tags`, `fts_content`, `scenes`, `scene_personnages`, `perso_chrono`, `timeline_events`, `timeline_links`)
+- donc: DB2 reste hors code, mais la base documentaire de cadrage est maintenant explicitement alignée sur le fichier racine du dépôt
 
 ## Vérifications Rust
 

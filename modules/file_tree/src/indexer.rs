@@ -31,6 +31,16 @@ use notify::Watcher;
 use crate::config::Config;
 use crate::stats::{self, Status};
 
+/// Résultat d'une recherche corpus FTS.
+#[derive(Debug, Clone)]
+pub struct CorpusHit {
+    pub path: PathBuf,
+    pub file_stem: String,
+    pub section: String,
+    pub words_body: u64,
+    pub snippet: String,
+}
+
 /// Stats d'un fichier indexé, publiées vers l'UI.
 #[derive(Debug, Clone)]
 pub struct FileStats {
@@ -135,6 +145,61 @@ pub fn spawn(root: PathBuf, cfg: Config, egui_ctx: egui::Context) -> Result<Inde
         cmd_tx: tx,
         join: Some(join),
     })
+}
+
+/// Recherche corpus locale sur l'index SQLite du projet courant.
+pub fn search_corpus(root: &Path, query: &str, limit: usize) -> Result<Vec<CorpusHit>, String> {
+    let db_path = root.join(".engram").join("index.db");
+    if !db_path.exists() {
+        return Err(format!(
+            "Aucune base d'index trouvée pour {}.",
+            root.display()
+        ));
+    }
+    let conn = rusqlite::Connection::open_with_flags(
+        db_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|e| e.to_string())?;
+    conn.pragma_update(None, "query_only", true)
+        .map_err(|e| e.to_string())?;
+    let query = normalize_fts_query(query);
+    if query.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut stmt = conn
+        .prepare(
+            "
+            SELECT
+                f.canonical_path,
+                f.file_stem,
+                f.section,
+                f.word_count_body,
+                snippet(fts_content, 1, '[', ']', ' … ', 12) AS excerpt
+            FROM fts_content
+            JOIN files f ON f.canonical_path = fts_content.canonical_path
+            WHERE fts_content MATCH ?1
+            ORDER BY bm25(fts_content)
+            LIMIT ?2
+            ",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(rusqlite::params![query, limit as i64], |row| {
+            Ok(CorpusHit {
+                path: PathBuf::from(row.get::<_, String>(0)?),
+                file_stem: row.get(1)?,
+                section: row.get(2)?,
+                words_body: row.get::<_, i64>(3)? as u64,
+                snippet: row.get(4)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    let mut hits = Vec::new();
+    for row in rows {
+        hits.push(row.map_err(|e| e.to_string())?);
+    }
+    Ok(hits)
 }
 
 // ---------------------------------------------------------------------------
@@ -892,6 +957,44 @@ fn extract_tags(body: &str) -> Vec<String> {
         }
     }
     out
+}
+
+fn normalize_fts_query(input: &str) -> String {
+    let mut terms = Vec::new();
+    for raw in input.split_whitespace() {
+        let term = raw
+            .trim_matches(|c: char| {
+                matches!(
+                    c,
+                    '"' | '\''
+                        | '`'
+                        | ','
+                        | ';'
+                        | ':'
+                        | '!'
+                        | '?'
+                        | '('
+                        | ')'
+                        | '['
+                        | ']'
+                        | '{'
+                        | '}'
+                        | '<'
+                        | '>'
+                        | '='
+                )
+            })
+            .replace('\"', "");
+        if term.is_empty() {
+            continue;
+        }
+        if term.len() == 1 {
+            terms.push(term);
+        } else {
+            terms.push(format!("\"{term}\""));
+        }
+    }
+    terms.join(" AND ")
 }
 
 // ---------------------------------------------------------------------------

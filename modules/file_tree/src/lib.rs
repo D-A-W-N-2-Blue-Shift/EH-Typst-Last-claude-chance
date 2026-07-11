@@ -76,6 +76,12 @@ enum Dialog {
         create: bool,
         items: Vec<String>,
     },
+    CorpusSearch {
+        query: String,
+        results: Vec<indexer::CorpusHit>,
+        last_error: Option<String>,
+        last_run: String,
+    },
 }
 
 /// Un projet ouvert : racine, config, session, indexeur, modèle d'arbre.
@@ -465,7 +471,16 @@ impl FileTreeModule {
                 None => self.glados("Sélectionne un lien dans En Cours d'abord."),
             },
             PaletteAction::ProjectSearch => {
-                self.glados("Recherche full-text désactivée en EH5. Prévue après DB V2.");
+                let Some(p) = &self.proj else {
+                    self.glados("Aucun projet ouvert. Ouvre un projet avant de chercher.");
+                    return;
+                };
+                self.dialog = Some(Dialog::CorpusSearch {
+                    query: String::new(),
+                    results: Vec::new(),
+                    last_error: None,
+                    last_run: format!("Corpus prêt : {}", p.root.display()),
+                });
             }
             PaletteAction::BackupNow => {
                 self.pending.push(ModuleResponse::BackupNow);
@@ -498,6 +513,42 @@ impl FileTreeModule {
                 self.pending.push(ModuleResponse::OpenModuleWindow(
                     "claude_terminal".to_string(),
                 ));
+            }
+        }
+    }
+
+    fn run_corpus_search(
+        &mut self,
+        query: &str,
+        results: &mut Vec<indexer::CorpusHit>,
+        last_error: &mut Option<String>,
+        last_run: &mut String,
+    ) {
+        let Some(p) = &self.proj else {
+            *last_error = Some("Aucun projet ouvert.".into());
+            results.clear();
+            return;
+        };
+        match indexer::search_corpus(&p.root, query, 30) {
+            Ok(hits) => {
+                *last_error = None;
+                *last_run = if query.trim().is_empty() {
+                    format!("Requête vide sur {}", p.root.display())
+                } else {
+                    format!(
+                        "{} résultat(s) pour '{}' dans {}",
+                        hits.len(),
+                        query.trim(),
+                        p.root.display()
+                    )
+                };
+                *results = hits;
+            }
+            Err(e) => {
+                *last_error = Some(e.clone());
+                *last_run = "Recherche impossible".into();
+                results.clear();
+                self.glados(e);
             }
         }
     }
@@ -539,6 +590,7 @@ impl FileTreeModule {
             Dialog::NewProjectName { .. } => "Nouveau projet",
             Dialog::ProjectOpenPrompt { .. } => "Ouvrir le dossier",
             Dialog::StructurePreview { .. } => "Prévisualisation de la structure",
+            Dialog::CorpusSearch { .. } => "Recherche corpus",
         };
         let dialog_root = match &dialog {
             Dialog::ProjectOpenPrompt { root, .. } | Dialog::StructurePreview { root, .. } => {
@@ -615,6 +667,51 @@ impl FileTreeModule {
                                 }
                             });
                     }
+                    Dialog::CorpusSearch {
+                        query,
+                        results,
+                        last_error,
+                        last_run,
+                    } => {
+                        ui.label("Recherche FTS dans le corpus du projet ouvert.");
+                        ui.label(last_run.as_str());
+                        let edit = ui.text_edit_singleline(query);
+                        if just_opened {
+                            edit.request_focus();
+                        }
+                        let want_search =
+                            edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                        if ui.button("Rechercher").clicked() || want_search {
+                            let query_text = query.clone();
+                            self.run_corpus_search(&query_text, results, last_error, last_run);
+                        }
+                        if let Some(err) = last_error.as_ref() {
+                            ui.colored_label(egui::Color32::from_rgb(255, 46, 136), err);
+                        }
+                        ui.separator();
+                        egui::ScrollArea::vertical()
+                            .max_height(260.0)
+                            .show(ui, |ui| {
+                                if results.is_empty() {
+                                    ui.weak("Aucun résultat pour l'instant.");
+                                }
+                                for hit in results.iter() {
+                                    ui.group(|ui| {
+                                        ui.horizontal_wrapped(|ui| {
+                                            if ui.button(hit.path.display().to_string()).clicked() {
+                                                self.open_file(&hit.path);
+                                            }
+                                            ui.weak(format!(
+                                                "{} · {} · {} mot(s)",
+                                                hit.section, hit.file_stem, hit.words_body
+                                            ));
+                                        });
+                                        ui.label(hit.snippet.as_str());
+                                    });
+                                    ui.add_space(4.0);
+                                }
+                            });
+                    }
                 }
                 ui.add_space(6.0);
                 ui.horizontal(|ui| match &dialog {
@@ -662,6 +759,11 @@ impl FileTreeModule {
                             keep = false;
                         }
                         if ui.button("Annuler").clicked() {
+                            keep = false;
+                        }
+                    }
+                    Dialog::CorpusSearch { .. } => {
+                        if ui.button("Fermer").clicked() {
                             keep = false;
                         }
                     }
@@ -771,6 +873,7 @@ impl FileTreeModule {
             Dialog::StructurePreview { root, create, .. } => {
                 self.open_project(root, ctx, create);
             }
+            Dialog::CorpusSearch { .. } => {}
         }
     }
 

@@ -16,7 +16,8 @@ Hub de navigation et d'indexation sémantique d'Engram_Hive.
   `engram_hive project open --path <dossier>` ouvre aussi un projet sans GUI.
 - Je maintiens l'index SQLite (`.engram/index.db`) : word counts corps/YAML
   séparés, wikilinks `[[]]` (+ détection d'orphelins), tags inline `#tag`,
-  index full-text FTS5 (l'UI de recherche est Phase 2, l'index est déjà là).
+  index full-text FTS5. La palette globale ouvre la recherche corpus locale
+  sur cet index.
 - Je surveille le projet avec `notify` (debounce 500 ms configurable) : une
   modification externe met les stats à jour en moins d'une seconde.
 - Je gère `06_en_cours/` : des **symlinks**, jamais de copies. Le fichier
