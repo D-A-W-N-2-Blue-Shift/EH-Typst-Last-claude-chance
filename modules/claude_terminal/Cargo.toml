@@ -1,0 +1,22 @@
+# ============================================================================
+# modules/claude_terminal/Cargo.toml — Terminal Claude Code intégré
+#
+# Fenêtre OS dédiée qui invoque le CLI `claude` en mode one-shot (--print),
+# affiche les réponses dans une interface chat structurée, et logue la
+# consommation tokens en JSONL.
+# ============================================================================
+
+[package]
+name = "claude_terminal"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+engram_core = { path = "../../core" }
+egui = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+ron = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+dirs = { workspace = true }

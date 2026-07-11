@@ -1,0 +1,48 @@
+// ============================================================================
+// editor.ron — Configuration de l'éditeur (MODÈLE)
+//
+// Le vrai fichier vit dans ~/.config/engram_hive/modules/editor/editor.ron
+// (créé automatiquement au premier lancement). Celui-ci est le modèle
+// commité dans le repo, pour référence.
+//
+// Commenter une ligne = revenir à la valeur par défaut.
+// Pour les options avancées : voir licorne-a-gerber_editor.ron dans ce dossier.
+// ============================================================================
+
+Editor(
+    // Polices : cherchée dans ~/.config/engram_hive/fonts/*.ttf puis dans
+    // les polices système (/usr/share/fonts, ~/.local/share/fonts, …).
+    // Introuvable = police par défaut d'egui, sans drame.
+    font_editor: "Georgia",
+    // Taille de police de base, en points. Le zoom par fenêtre
+    // (Ctrl+Molette) part de cette valeur ; Ctrl+0 y revient.
+    font_size: 15,
+    // Largeur de la colonne de texte, en caractères. Le texte est centré,
+    // marges en couleur de fond. 0 = pleine largeur.
+    column_width: 72,
+    // Ligne courante maintenue au centre vertical (machine à écrire).
+    // Le scroll souris reste libre. Bascule : Ctrl+Alt+T ou
+    // `engram_hive editor typewriter toggle`.
+    typewriter_mode: false,
+    // Guillemets «», apostrophes courbes, — , …, espaces insécables.
+    // Surchargeable par fichier : `smart_typography: false` en frontmatter.
+    smart_typography: true,
+    // "fr" ou "en" — pilote les guillemets et les insécables.
+    // Surchargeable par fichier : `language: "en"` en frontmatter.
+    language: "fr",
+    // Popup d'auto-complétion dès [[ + 1 caractère (l'index des .md est
+    // fourni par le file_tree via le core).
+    wikilink_autocomplete: true,
+    // Préfixe des snippets : ;sce, ;per, ;cha, ;date, ;dt.
+    snippet_prefix: ";",
+    // Numéros de ligne dans la marge gauche.
+    line_numbers: false,
+    // Fond discret derrière la ligne du curseur.
+    highlight_current_line: true,
+    // Sauvegarde automatique, en minutes. 0 = désactivée.
+    // (Ctrl+S sauvegarde immédiatement, et tout est sauvé au quit.)
+    autosave_minutes: 5,
+    // Auto-fermeture des paires ( ) et [ ]. Les guillemets restent gérés
+    // par la smart typography (« » / " ").
+    auto_close_pairs: true,
+)

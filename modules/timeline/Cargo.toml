@@ -1,0 +1,25 @@
+# ============================================================================
+# modules/timeline/Cargo.toml — Module timeline EH5 (§5)
+#
+# Vue chronologique des fichiers porteurs d'un marqueur date discret
+# (<!-- date:YYYY[-MM[-DD]] -->). Lit la base SQLite indexée par file_tree
+# en lecture seule (chemin convention : <projet>/.engram/index.db).
+#
+# Croise la table `files` (colonne date_marker) avec `wikilinks` pour
+# afficher les personnages/lieux liés à chaque événement. Clic sur une
+# ligne ⇒ ouverture du fichier (ModuleResponse::OpenFile).
+# ============================================================================
+
+[package]
+name = "timeline"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+engram_core = { path = "../../core" }
+rusqlite = { workspace = true }
+egui = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

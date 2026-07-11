@@ -1,0 +1,35 @@
+# ============================================================================
+# app/Cargo.toml — Le binaire engram_hive
+#
+# C'est ICI (et seulement ici) que les modules sont câblés au core :
+# chaque module est enregistré dans le ModuleRegistry par son nom, et
+# ~/.config/engram_hive/modules.ron décide de ce qui est chargé.
+# ============================================================================
+
+[package]
+name = "engram_hive"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "engram_hive"
+path = "src/main.rs"
+
+[dependencies]
+engram_core = { path = "../core" }
+file_tree = { path = "../modules/file_tree" }
+editor = { path = "../modules/editor" }
+cockpit = { path = "../modules/cockpit" }
+timeline = { path = "../modules/timeline" }
+claude_terminal = { path = "../modules/claude_terminal" }
+egui = { workspace = true }
+eframe = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+dirs = { workspace = true }
+image = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
+ron = { workspace = true }

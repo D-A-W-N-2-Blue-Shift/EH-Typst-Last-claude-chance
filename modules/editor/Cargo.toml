@@ -1,0 +1,33 @@
+# ============================================================================
+# modules/editor/Cargo.toml — Module Éditeur
+#
+# L'éditeur de prose d'Engram_Hive. Un fichier = une fenêtre OS. Dépend du
+# core (trait Module) et de rien d'autre côté Engram_Hive. Supprimer ce
+# dossier + retirer "editor" de modules.ron = le module disparaît proprement.
+# ============================================================================
+
+[package]
+name = "editor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+engram_core = { path = "../../core" }
+egui = { workspace = true }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+serde_json = { workspace = true }
+ron = { workspace = true }
+toml = { workspace = true }
+dirs = { workspace = true }
+tracing = { workspace = true }
+notify = { workspace = true }
+ropey = { workspace = true }
+syntect = { workspace = true }
+regex = { workspace = true }
+xxhash-rust = { workspace = true }
+chrono = { workspace = true }
+arboard = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

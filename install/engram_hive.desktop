@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Engram Hive
+GenericName=Éditeur de prose
+Comment=We don't write. We purge. Ink is {un}digested pain.
+Exec=engram_hive
+Icon=engram_hive
+Terminal=false
+Categories=Office;TextEditor;Utility;
+MimeType=text/markdown;text/plain;
+StartupNotify=true

@@ -1,0 +1,68 @@
+# ============================================================================
+# Cargo.toml — Racine du workspace Engram_Hive
+#
+# Quatre crates :
+#   - core/              : le noyau (trait Module, bus de réponses, registre, IPC)
+#   - app/               : le binaire engram_hive (GUI eframe + CLI)
+#   - modules/file_tree/ : le module file tree (hub de navigation)
+#   - modules/editor/    : le module éditeur (prose, une fenêtre par fichier)
+#   - modules/cockpit/   : le module cockpit (édition UI des fichiers RON de config)
+#
+# Les versions des dépendances partagées sont centralisées ici.
+# ============================================================================
+
+[workspace]
+resolver = "2"
+members = [
+    "core",
+    "app",
+    "modules/file_tree",
+    "modules/editor",
+    "modules/cockpit",
+    "modules/timeline",
+    "modules/claude_terminal",
+]
+
+[workspace.dependencies]
+egui = "0.31"
+# Cible Fedora : Wayland natif + X11. Le build nécessite wayland-devel
+# (Fedora) / libwayland-dev (Debian) installé sur la machine de build.
+# default-features = false pour éliminer accesskit (tire quick-xml 0.30 via
+# zbus/atspi). On réactive explicitement ce qu'on utilise.
+eframe = { version = "0.31", default-features = false, features = [
+    "default_fonts", "glow", "wayland", "x11", "persistence",
+] }
+serde = { version = "1", features = ["derive"] }
+ron = "0.8"
+dirs = "5"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+notify = "6.1"
+# --- Module éditeur ---
+ropey = "1.6"
+# syntect sans onig (lib C) : fancy-regex pur Rust suffit pour le markdown.
+# Features minimales : parsing + syntaxes embarquées + fancy-regex. Pas de
+# plist-load (tire quick-xml), pas de yaml-load (tire yaml-rust), pas de html.
+syntect = { version = "5", default-features = false, features = ["parsing", "default-syntaxes", "regex-fancy"] }
+serde_yaml = "0.9"
+serde_json = "1"
+arboard = { version = "3", default-features = false, features = ["wayland-data-control"] }
+regex = "1"
+rayon = "1.10"
+toml = "0.8"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+chrono = "0.4"
+# --- Icône / fond (app) : décodage PNG uniquement, pas de lib C. ---
+image = { version = "0.25", default-features = false, features = ["png"] }
+# --- Backup WrapDrive (core) : archives tar.gz, pur Rust. ---
+tar = "0.4"
+flate2 = "1"
+thiserror = "1"
+
+# ============================================================================
+# cargo audit — les advisories volontairement ignorées et leurs justifications
+# techniques sont dans .cargo/audit.toml (config officielle cargo-audit).
+# Toute nouvelle advisory DOIT être traitée, pas ajoutée à cette liste sans
+# analyse documentée.
+# ============================================================================

@@ -1,0 +1,173 @@
+// ============================================================================
+// licorne-a-gerber.ron — Configuration EXPERTE unifiée d'Engram_Hive (MODÈLE)
+//
+// Ce fichier regroupe TOUTES les options avancées de TOUS les modules.
+// Copie-le dans ~/.config/engram_hive/licorne-a-gerber.ron pour t'en servir.
+// Absent → chaque module dérive ses valeurs des configs simples + ses défauts.
+//
+// Format : un map RON `{ "section": ... }`, une SECTION par module. Tu peux
+// ne garder QUE les sections (et même que les lignes) qui t'intéressent — le
+// reste retombe sur les défauts dérivés. Commenter une ligne = défaut.
+//
+// Si tu casses la syntaxe d'une section → message GLaDOS + défauts pour CE
+// module seul. Si tu casses la syntaxe globale → défauts partout.
+// Les couleurs sont en "#rrggbb". "" = couleur du thème.
+//
+// Ajouter un module ⇒ ajouter sa section ici (cf. ARCHITECTURE.md).
+// ============================================================================
+{
+    // =========================================================================
+    // THÈME — Apparence globale (couleurs avancées, bordures).
+    // =========================================================================
+    "theme": Theme(
+        // Sélection de texte : noir sur jaune (contraste maximal).
+        selection_background: "#FFD700",
+        selection_foreground: "#000000",
+
+        // Formatage inline.
+        bold_color: "#9B59B6",        // violet
+        italic_color: "#FF55FF",      // rose/magenta clair
+
+        // Highlight ==texte==.
+        highlight_background: "#FF8C00",
+        highlight_foreground: "#000000",
+
+        // Titres — dégradé glow néon magenta → violet → bleu H1→H6.
+        heading_h1: "#FF00FF",         // magenta pur
+        heading_h2: "#CC00FF",         // violet électrique
+        heading_h3: "#9900FF",         // violet profond
+        heading_h4: "#6600FF",         // indigo néon
+        heading_h5: "#3300FF",         // bleu électrique
+        heading_h6: "#7B00FF",         // violet UI (= accent_secondary)
+
+        // Wikilinks.
+        wikilink_valid: "#FF00FF",
+        wikilink_orphan: "#FF4444",
+        wikilink_bracket_opacity: 10,  // crochets quasi invisibles
+
+        // Bordures des fenêtres.
+        border_color: "#7B00FF",
+        border_glow: true,             // fallback width 2-3 si le glow coûte trop
+        border_width: 2,
+    ),
+
+    // =========================================================================
+    // ÉDITEUR — Comportement avancé de l'éditeur de prose.
+    // =========================================================================
+    "editor": EditorVomi(
+        // --- Curseur ---
+        cursor_thickness: 2.0,          // épaisseur en pixels
+        cursor_blink_ms: 500,           // période de clignotement
+        cursor_color: "",               // défaut : rose néon du thème
+
+        // --- Mise en page ---
+        line_height: 1.6,               // interligne (× taille de police)
+        paragraph_spacing: 14.0,        // espace après chaque paragraphe (px)
+        editor_padding: 40.0,           // marge minimale autour de la colonne
+
+        // --- Coloration ---
+        syntax_highlight_buffer_lines: 10, // lignes parsées en plus du visible
+        heading_h1_scale: 1.6,          // échelle de police des titres
+        heading_h2_scale: 1.4,
+        heading_h3_scale: 1.25,
+        heading_h4_scale: 1.15,
+        heading_h5_scale: 1.05,
+        heading_h6_scale: 1.0,
+        heading_h1: "",                 // couleurs H1..H6 (dégradé rose par défaut)
+        heading_h2: "",
+        heading_h3: "",
+        heading_h4: "",
+        heading_h5: "",
+        heading_h6: "",
+        foreground: "",                 // texte courant
+        inline_code_foreground: "",
+        inline_code_background: "",
+        code_block_foreground: "",
+        code_block_background: "",
+        blockquote_color: "",
+        blockquote_border: "",          // barre verticale à gauche des citations
+        wikilink_valid: "",             // lien qui résout (bleu clair)
+        wikilink_orphan: "",            // lien orphelin (rouge, clic = création)
+        tag_color: "",                  // #tags inline
+        frontmatter_color: "",          // clés YAML de l'en-tête
+        comment_prefix: "%",            // lignes non exportées, affichées discrètes
+        comment_color: "",
+        markers_color: "",              // les ** des gras, # des titres, ---
+        current_line_background: "",
+        selection_background: "",
+        search_highlight_background: "",
+        search_current_background: "",  // l'occurrence courante (plus vive)
+
+        // --- Zoom (par fenêtre survolée, jamais global) ---
+        zoom_min_pt: 10.0,
+        zoom_max_pt: 48.0,
+        // §8 du brief 2/7/2026 — pas de zoom Ctrl+Molette. 1.0 = brutal
+        // (comportement d'avant), 0.5 = deux fois moins nerveux (défaut),
+        // 0.25 = très doux. Sous 0.05 le zoom devient inutilisable.
+        zoom_scroll_step: 0.5,
+
+        // --- Smart typography (interrupteurs fins) ---
+        french_quotes: true,            // " → « » (si language = fr)
+        auto_emdash: true,              // -- → — (protégé en début de ligne)
+        auto_ellipsis: true,            // ... → …
+        auto_nbsp: true,                // espace avant : ; ? ! → insécable (fr)
+
+        // --- Wikilinks ---
+        wikilink_bracket_opacity: 15,   // opacité des [[ ]] en % (15 = fantômes)
+        wikilink_autocomplete_min_chars: 1,
+        wikilink_autocomplete_max_results: 8,
+
+        // --- Stats / objectif ---
+        goal_reached_color: "",         // vert par défaut
+        stats_debounce_ms: 200,         // recalcul après la dernière frappe
+        status_bar_color: "",
+
+        // --- Focus / typewriter ---
+        focus_show_status_bar: true,    // status bar visible en mode focus
+        focus_minimal_status: true,     // … mais réduite à l'essentiel
+        typewriter_position: 0.4,       // position verticale de la ligne courante
+
+        // --- Sauvegarde ---
+        self_write_silence_secs: 2,     // flag "c'est moi qui écris" (notify)
+    ),
+
+    // =========================================================================
+    // FILE TREE — Comportement avancé de l'explorateur de fichiers.
+    // =========================================================================
+    "file_tree": FileTreeVomi(
+        // --- Indexeur ---
+        notify_debounce_ms: 500,        // anti-rebond des événements fichiers
+        scan_parallelism: 4,            // threads de scan initial
+        extra_extensions: [],           // ex: ["txt", "org"] en plus de .md
+        exclude_dirs: [],               // ex: ["node_modules", ".git"]
+
+        // --- Affichage ---
+        indent_size: 16,                // px d'indentation par niveau
+        row_height: 22,                 // px par ligne
+        folder_color: "#aa00ff",        // dossiers : violet clair, bien contrasté
+        symlink_color: "",              // symlinks hors 06_en_cours/ (rare)
+        en_cours_symlink_color: "#ff55ff", // symlinks dans 06_en_cours/ : 3e couleur distincte
+        goal_pending_color: "",         // objectif non atteint
+        goal_reached_color: "",         // objectif atteint (vert par défaut)
+
+        // --- Stats ---
+        stats_unit: "words",            // "words" | "chars"
+        abbreviate_counts: true,        // 1234 → 1.2k
+        abbreviate_threshold: 1000,     // seuil d'abréviation
+
+        // --- Layout ---
+        docked_snap_distance: 5,        // px de magnétisme en mode Docked
+    ),
+
+    // =========================================================================
+    // BACKUP — Sauvegarde automatique invisible (WrapDrive).
+    // =========================================================================
+    "backup": BackupConfig(
+        enabled: true,
+        interval_minutes: 30,           // période entre deux backups automatiques
+        keep_days: 30,                  // purge des archives plus vieilles que ça
+        format: "tar.gz",               // format d'archive (tar.gz)
+        destination: "",                // vide = ~/.local/share/engram_hive/backups/
+        auto_export_path: "",           // vide = pas d'export auto en plus
+    ),
+}

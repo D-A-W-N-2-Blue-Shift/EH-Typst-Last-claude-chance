@@ -1,0 +1,23 @@
+# ============================================================================
+# modules/cockpit/Cargo.toml — Module Cockpit
+#
+# Édition UI des fichiers RON de configuration (theme.ron, file_tree.ron, etc.)
+# sans passer par un éditeur de texte. Dépend du core et accède aux fichiers
+# RON par leur emplacement XDG ; n'importe PAS les crates des autres modules
+# (lecture/écriture en ron::Value brute pour rester découplé).
+# ============================================================================
+
+[package]
+name = "cockpit"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+engram_core = { path = "../../core" }
+egui = { workspace = true }
+serde = { workspace = true }
+ron = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
