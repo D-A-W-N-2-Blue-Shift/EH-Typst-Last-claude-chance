@@ -1,7 +1,7 @@
 // ============================================================================
-// modules/cockpit/src/claude_terminal_form.rs — Formulaire config provider CLI
+// modules/cockpit/src/claude_terminal_form.rs — Formulaire config COH2B / provider CLI
 //
-// Édite claude_terminal.ron (auth_mode + api_key) sans dépendre de la crate
+// Édite coh2b.ron (auth_mode + api_key) sans dépendre de la crate
 // provider CLI (cockpit reste découplé). Types locaux miroirs.
 // ============================================================================
 
@@ -56,7 +56,7 @@ impl AuthMode {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 #[serde(rename = "ClaudeTerminalConfig")]
 pub struct Draft {
@@ -83,12 +83,18 @@ impl Default for Draft {
 
 pub fn load(licorne: &engram_core::Licorne) -> (Draft, Vec<String>) {
     let mut errors = Vec::new();
-    let draft: Draft = licorne.section("claude_terminal", &mut errors);
+    let draft: Draft = licorne.section("coh2b", &mut errors);
+    if draft == Draft::default() {
+        let legacy: Draft = licorne.section("claude_terminal", &mut Vec::new());
+        if legacy != Draft::default() {
+            return (legacy, errors);
+        }
+    }
     (draft, errors)
 }
 
 pub fn save(config_dir: &Path, draft: &Draft) -> Result<std::path::PathBuf, String> {
-    let path = config_dir.join("claude_terminal.ron");
+    let path = config_dir.join("coh2b.ron");
     let body = format!(
         "// Configuration du provider CLI.\n\
              // provider : Claude, Codex ou Gemini.\n\
@@ -160,7 +166,7 @@ pub fn draw(ui: &mut egui::Ui, draft: &mut Draft) {
                     .desired_width(400.0),
             );
             ui.add_space(4.0);
-            ui.weak("Stockée dans claude_terminal.ron. Non chiffrée.");
+            ui.weak("Stockée dans coh2b.ron. Non chiffrée.");
         }
     }
 }

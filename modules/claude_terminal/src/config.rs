@@ -54,7 +54,64 @@ impl AuthMode {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
+pub enum ScopeMode {
+    #[default]
+    CurrentFile,
+    SelectedText,
+    Corpus,
+    Project,
+}
+
+impl ScopeMode {
+    pub const ALL: &'static [Self] = &[
+        Self::CurrentFile,
+        Self::SelectedText,
+        Self::Corpus,
+        Self::Project,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::CurrentFile => "Fichier courant",
+            Self::SelectedText => "Texte sélectionné",
+            Self::Corpus => "Corpus",
+            Self::Project => "Projet complet",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
+pub enum AnalysisMode {
+    #[default]
+    Question,
+    Micro,
+    Macro,
+    Narrative,
+    Audit,
+}
+
+impl AnalysisMode {
+    pub const ALL: &'static [Self] = &[
+        Self::Question,
+        Self::Micro,
+        Self::Macro,
+        Self::Narrative,
+        Self::Audit,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Question => "Question libre",
+            Self::Micro => "Cohérence micro",
+            Self::Macro => "Cohérence macro",
+            Self::Narrative => "Piste narrative",
+            Self::Audit => "Audit de modification",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 #[serde(rename = "ClaudeTerminalConfig")]
 pub struct ClaudeTerminalConfig {
@@ -63,6 +120,10 @@ pub struct ClaudeTerminalConfig {
     pub args: String,
     pub auth_mode: AuthMode,
     pub api_key: Option<String>,
+    pub scope: ScopeMode,
+    pub analysis_mode: AnalysisMode,
+    pub input_cost_per_1k: Option<f64>,
+    pub output_cost_per_1k: Option<f64>,
 }
 
 impl Default for ClaudeTerminalConfig {
@@ -75,6 +136,10 @@ impl Default for ClaudeTerminalConfig {
             args: args.to_string(),
             auth_mode: AuthMode::Subscription,
             api_key: None,
+            scope: ScopeMode::CurrentFile,
+            analysis_mode: AnalysisMode::Question,
+            input_cost_per_1k: None,
+            output_cost_per_1k: None,
         }
     }
 }
@@ -82,7 +147,13 @@ impl Default for ClaudeTerminalConfig {
 impl ClaudeTerminalConfig {
     pub fn load(licorne: &engram_core::Licorne) -> (Self, Vec<String>) {
         let mut errors = Vec::new();
-        let cfg: Self = licorne.section("claude_terminal", &mut errors);
+        let cfg: Self = licorne.section("coh2b", &mut errors);
+        if cfg == Self::default() {
+            let legacy: Self = licorne.section("claude_terminal", &mut Vec::new());
+            if legacy != Self::default() {
+                return (legacy, errors);
+            }
+        }
         (cfg, errors)
     }
 }
@@ -107,12 +178,18 @@ mod tests {
             args: "--json --model gemini-2.5-pro".into(),
             auth_mode: AuthMode::Subscription,
             api_key: Some("abc123".into()),
+            scope: ScopeMode::Project,
+            analysis_mode: AnalysisMode::Macro,
+            input_cost_per_1k: Some(0.0),
+            output_cost_per_1k: Some(0.0),
         };
         let raw = ron::ser::to_string_pretty(&cfg, ron::ser::PrettyConfig::default())?;
         let parsed: ClaudeTerminalConfig = ron::from_str(&raw)?;
         assert_eq!(parsed.command, "gemini-cli");
         assert!(parsed.args.contains("gemini-2.5-pro"));
         assert_eq!(parsed.provider, AssistantCliProvider::Gemini);
+        assert_eq!(parsed.scope, ScopeMode::Project);
+        assert_eq!(parsed.analysis_mode, AnalysisMode::Macro);
         Ok(())
     }
 }

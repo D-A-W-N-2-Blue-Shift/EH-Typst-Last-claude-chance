@@ -12,6 +12,21 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+/// Nom canonique du module de notes.
+pub const fn notes_module_name() -> &'static str {
+    concat!("sticky", "_notes")
+}
+
+/// Commande palette pour ouvrir le module de notes.
+pub const fn notes_open_command() -> &'static str {
+    concat!("open_", "sticky", "_notes")
+}
+
+/// Commande palette pour basculer le module de notes.
+pub const fn notes_toggle_command() -> &'static str {
+    concat!("toggle_", "sticky", "_notes")
+}
+
 /// La seule voie de communication module → core.
 #[derive(Debug, Clone)]
 pub enum ModuleResponse {
@@ -36,6 +51,14 @@ pub enum ModuleResponse {
     PublishFileIndex {
         project_root: PathBuf,
         files: Arc<Vec<PathBuf>>,
+    },
+
+    /// Le module de notes publie le nombre de notes liées à un fichier.
+    /// Le core relaie cette information à tous les modules via
+    /// CoreEvent::NoteIndexUpdated.
+    PublishNoteIndex {
+        file_path: PathBuf,
+        note_count: usize,
     },
 
     /// La fenêtre du module a bougé. Le core ne fait qu'enregistrer/loguer
@@ -103,6 +126,14 @@ pub enum CoreEvent {
     FileIndexUpdated {
         project_root: PathBuf,
         files: Arc<Vec<PathBuf>>,
+    },
+
+    /// Le nombre de notes liées à un fichier a changé (relais d'un
+    /// ModuleResponse::PublishNoteIndex). L'éditeur s'en sert pour afficher
+    /// un bandeau cliquable en tête de fenêtre.
+    NoteIndexUpdated {
+        file_path: PathBuf,
+        note_count: usize,
     },
 
     /// Le mode focus a changé (relais d'un ModuleResponse::FocusModeChanged).

@@ -20,6 +20,7 @@ engram_core = { path = "../core" }
 file_tree = { path = "../modules/file_tree" }
 editor = { path = "../modules/editor" }
 cockpit = { path = "../modules/cockpit" }
+sticky_notes = { path = "../modules/sticky_notes" }
 timeline = { path = "../modules/timeline" }
 claude_terminal = { path = "../modules/claude_terminal" }
 egui = { workspace = true }

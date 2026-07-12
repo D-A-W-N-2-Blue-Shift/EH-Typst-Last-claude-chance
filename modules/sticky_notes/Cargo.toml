@@ -1,13 +1,12 @@
 # ============================================================================
-# modules/claude_terminal/Cargo.toml — Terminal Claude Code intégré
+# modules/sticky_notes/Cargo.toml — Module Sticky Notes
 #
-# Fenêtre OS dédiée qui invoque le CLI `claude` en mode one-shot (--print),
-# affiche les réponses dans une interface chat structurée, et logue la
-# consommation tokens en JSONL.
+# Post-its d'écrivain ancrés dans les fichiers, avec stockage SQLite dans la
+# base existante du projet. Module autonome, chargé par app/src/main.rs.
 # ============================================================================
 
 [package]
-name = "claude_terminal"
+name = "sticky_notes"
 version = "0.1.0"
 edition = "2021"
 
@@ -15,9 +14,8 @@ edition = "2021"
 engram_core = { path = "../../core" }
 egui = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 ron = { workspace = true }
-tracing = { workspace = true }
-chrono = { workspace = true }
 dirs = { workspace = true }
+tracing = { workspace = true }
 rusqlite = { workspace = true }
+chrono = { workspace = true }

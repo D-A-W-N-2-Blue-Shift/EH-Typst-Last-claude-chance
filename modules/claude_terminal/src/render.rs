@@ -7,7 +7,8 @@
 
 use egui::{Align, Layout, RichText, ScrollArea, TextEdit};
 
-use crate::config::AuthMode;
+use crate::config::{AnalysisMode, AuthMode, ScopeMode};
+use crate::corpus::CorpusHit;
 
 #[derive(Debug, Clone)]
 pub struct Exchange {
@@ -23,12 +24,18 @@ pub struct RenderState<'a> {
     pub provider: &'static str,
     pub command: &'a str,
     pub auth_mode: AuthMode,
+    pub scope_mode: ScopeMode,
+    pub analysis_mode: AnalysisMode,
+    pub current_file: Option<&'a std::path::Path>,
     pub cumulative_in: u64,
     pub cumulative_out: u64,
+    pub corpus_hits: &'a [CorpusHit],
     pub history: &'a [Exchange],
     pub pending: bool,
     pub question_draft: &'a mut String,
     pub status_msgs: &'a mut Vec<(StatusKind, String)>,
+    pub input_cost_per_1k: Option<f64>,
+    pub output_cost_per_1k: Option<f64>,
 }
 
 #[derive(Clone, Copy)]
@@ -40,12 +47,16 @@ pub enum StatusKind {
 pub struct RenderOutput {
     pub send_question: Option<String>,
     pub export_cut: bool,
+    pub scope_mode: ScopeMode,
+    pub analysis_mode: AnalysisMode,
 }
 
 pub fn draw(ui: &mut egui::Ui, state: &mut RenderState<'_>) -> RenderOutput {
     let mut output = RenderOutput {
         send_question: None,
         export_cut: false,
+        scope_mode: state.scope_mode,
+        analysis_mode: state.analysis_mode,
     };
 
     draw_status_banner(ui, state.status_msgs);
@@ -59,12 +70,46 @@ pub fn draw(ui: &mut egui::Ui, state: &mut RenderState<'_>) -> RenderOutput {
         };
         ui.weak(format!("Auth : {auth_label}"));
         ui.separator();
+        ui.weak(format!("Périmètre : {}", state.scope_mode.label()));
+        ui.separator();
+        ui.weak(format!("Mode : {}", state.analysis_mode.label()));
+        ui.separator();
+        if let Some(path) = state.current_file {
+            ui.weak(format!("Fichier : {}", path.display()));
+            ui.separator();
+        }
         ui.weak(format!(
             "Tokens session : {} in / {} out",
             state.cumulative_in, state.cumulative_out
         ));
+        if let Some(cost) = estimated_cost(
+            state.cumulative_in,
+            state.cumulative_out,
+            state.input_cost_per_1k,
+            state.output_cost_per_1k,
+        ) {
+            ui.separator();
+            ui.weak(format!("Coût estimé : {cost:.4}"));
+        }
     });
     ui.separator();
+
+    if !state.corpus_hits.is_empty() {
+        ui.collapsing("Contexte joint (corpus)", |ui| {
+            for hit in state.corpus_hits.iter().take(8) {
+                ui.group(|ui| {
+                    ui.strong(format!(
+                        "{} | {} | {} mots",
+                        hit.path.display(),
+                        hit.section,
+                        hit.words_body
+                    ));
+                    ui.label(&hit.snippet);
+                });
+            }
+        });
+        ui.separator();
+    }
 
     let available = ui.available_height() - 80.0;
     ScrollArea::vertical()
@@ -99,6 +144,20 @@ pub fn draw(ui: &mut egui::Ui, state: &mut RenderState<'_>) -> RenderOutput {
 
         let can_send = !state.question_draft.trim().is_empty() && !state.pending;
         ui.with_layout(Layout::top_down(Align::Center), |ui| {
+            egui::ComboBox::from_id_salt("coh2b_scope")
+                .selected_text(state.scope_mode.label())
+                .show_ui(ui, |ui| {
+                    for scope in ScopeMode::ALL {
+                        ui.selectable_value(&mut state.scope_mode, *scope, scope.label());
+                    }
+                });
+            egui::ComboBox::from_id_salt("coh2b_mode")
+                .selected_text(state.analysis_mode.label())
+                .show_ui(ui, |ui| {
+                    for mode in AnalysisMode::ALL {
+                        ui.selectable_value(&mut state.analysis_mode, *mode, mode.label());
+                    }
+                });
             if ui
                 .add_enabled(can_send, egui::Button::new("Envoyer"))
                 .clicked()
@@ -115,7 +174,20 @@ pub fn draw(ui: &mut egui::Ui, state: &mut RenderState<'_>) -> RenderOutput {
         });
     });
 
+    output.scope_mode = state.scope_mode;
+    output.analysis_mode = state.analysis_mode;
     output
+}
+
+fn estimated_cost(
+    input_tokens: u64,
+    output_tokens: u64,
+    input_cost_per_1k: Option<f64>,
+    output_cost_per_1k: Option<f64>,
+) -> Option<f64> {
+    let in_rate = input_cost_per_1k?;
+    let out_rate = output_cost_per_1k?;
+    Some((input_tokens as f64 / 1000.0) * in_rate + (output_tokens as f64 / 1000.0) * out_rate)
 }
 
 fn draw_exchange(ui: &mut egui::Ui, ex: &Exchange) {

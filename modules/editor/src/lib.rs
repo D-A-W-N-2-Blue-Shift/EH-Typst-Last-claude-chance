@@ -36,6 +36,7 @@ pub mod typst_render;
 pub mod viewport;
 pub mod wikilinks;
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
@@ -146,6 +147,8 @@ pub struct EditorWindow {
     last_title: String,
     /// Le buffer a changé sous nos pieds (autre fenêtre) : re-clamper.
     seen_version: u64,
+    /// Nombre de sticky notes liées à ce fichier.
+    note_count: usize,
 }
 
 impl EditorWindow {
@@ -189,6 +192,7 @@ impl EditorWindow {
             request_os_focus: true,
             last_title: String::new(),
             seen_version,
+            note_count: 0,
         }
     }
 
@@ -232,6 +236,7 @@ pub struct EditorModule {
     windows: Vec<EditorWindow>,
     next_id: u64,
     index: WikilinkIndex,
+    note_counts: HashMap<PathBuf, usize>,
     /// Fichiers à ouvrir (CoreEvent, IPC, session) — drainés chaque frame.
     pending_open: Vec<(PathBuf, Option<WindowSession>)>,
     /// Commandes IPC en attente.
@@ -270,6 +275,7 @@ impl Default for EditorModule {
             windows: Vec::new(),
             next_id: 0,
             index: WikilinkIndex::default(),
+            note_counts: HashMap::new(),
             pending_open: Vec::new(),
             pending_ipc: Vec::new(),
             pending: Vec::new(),
@@ -330,6 +336,7 @@ impl EditorModule {
             self.cfg.simple.font_size as f32,
             self.cfg.simple.typewriter_mode,
         );
+        win.note_count = self.note_counts.get(&win.canonical).copied().unwrap_or(0);
         if let Some(s) = restore {
             let len = win.buffer.read_buf().rope.len_chars();
             win.cursor = s.cursor.min(len);
@@ -356,8 +363,9 @@ impl EditorModule {
         let font = src.font_size;
         let tw = src.typewriter;
         self.next_id += 1;
-        self.windows
-            .push(EditorWindow::new(self.next_id, canonical, shared, font, tw));
+        let mut win = EditorWindow::new(self.next_id, canonical, shared, font, tw);
+        win.note_count = self.note_counts.get(&win.canonical).copied().unwrap_or(0);
+        self.windows.push(win);
         self.session_dirty = true;
     }
 
@@ -781,6 +789,11 @@ impl Module for EditorModule {
         if actions.open_palette {
             self.pending.push(ModuleResponse::OpenPaletteRequested);
         }
+        if actions.open_notes_panel {
+            self.pending.push(ModuleResponse::OpenModuleWindow(
+                engram_core::notes_module_name().to_string(),
+            ));
+        }
 
         // Fenêtres fermées : on retire, on libère les buffers orphelins.
         let before = self.windows.len();
@@ -824,6 +837,17 @@ impl Module for EditorModule {
             CoreEvent::IpcCommand(cmd) if cmd.module == "editor" => {
                 self.pending_ipc.push(cmd.clone());
             }
+            CoreEvent::NoteIndexUpdated {
+                file_path,
+                note_count,
+            } => {
+                self.note_counts.insert(file_path.clone(), *note_count);
+                for win in &mut self.windows {
+                    if &win.canonical == file_path {
+                        win.note_count = *note_count;
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -858,6 +882,7 @@ struct WindowActions {
     open_okular: Vec<PathBuf>,
     open_render_dir: Vec<PathBuf>,
     request_render: Vec<SharedBuffer>,
+    open_notes_panel: bool,
     glados: Vec<String>,
     session_dirty: bool,
     /// §7 — l'utilisateur a pressé Ctrl+Shift+P depuis un viewport éditeur ;
@@ -1020,6 +1045,17 @@ fn draw_window(
                 &cfg.vomi.comment_prefix,
                 cfg.vomi.stats_debounce_ms,
             );
+        }
+
+        if win.note_count > 0 {
+            egui::TopBottomPanel::top(egui::Id::new(("editor_notes", win.id))).show(ctx, |ui| {
+                if ui
+                    .button(format!("Notes liées: {}", win.note_count))
+                    .clicked()
+                {
+                    actions.open_notes_panel = true;
+                }
+            });
         }
 
         // --- Bandeau GLaDOS (module-level, visible partout). ---

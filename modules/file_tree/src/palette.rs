@@ -16,6 +16,10 @@ pub enum PaletteAction {
     CockpitOpen,
     /// Bascule l'affichage du cockpit.
     CockpitToggle,
+    /// Ouvre la fenêtre Sticky Notes.
+    StickyNotesOpen,
+    /// Bascule l'affichage de Sticky Notes.
+    StickyNotesToggle,
     /// Ouvre la fenêtre WrapDrive (Analyse rapide + Dialogue projet).
     WrapDriveOpen,
     /// Ouvre la fenêtre Timeline (vue chronologique).
@@ -42,6 +46,8 @@ impl PaletteAction {
         Self::BackupShowDir,
         Self::CockpitOpen,
         Self::CockpitToggle,
+        Self::StickyNotesOpen,
+        Self::StickyNotesToggle,
         Self::WrapDriveOpen,
         Self::TimelineOpen,
         Self::TimelineChronology,
@@ -63,10 +69,12 @@ impl PaletteAction {
             Self::BackupShowDir => "backup: afficher le dossier de sauvegarde",
             Self::CockpitOpen => "cockpit: ouvrir la fenêtre de configuration",
             Self::CockpitToggle => "cockpit: afficher / masquer",
+            Self::StickyNotesOpen => "sticky notes: ouvrir la fenêtre",
+            Self::StickyNotesToggle => "sticky notes: afficher / masquer",
             Self::WrapDriveOpen => "wrapdrive: ouvrir le panel (Analyse / Dialogue projet)",
             Self::TimelineOpen => "timeline: ouvrir la vue",
             Self::TimelineChronology => "timeline: chronologie",
-            Self::ClaudeTerminalOpen => "claude_terminal: ouvrir",
+            Self::ClaudeTerminalOpen => "coh2b: ouvrir",
         }
     }
 
@@ -85,6 +93,8 @@ impl PaletteAction {
             Self::BackupShowDir => "backup_show_dir",
             Self::CockpitOpen => "open_cockpit",
             Self::CockpitToggle => "toggle_cockpit",
+            Self::StickyNotesOpen => engram_core::notes_open_command(),
+            Self::StickyNotesToggle => engram_core::notes_toggle_command(),
             Self::WrapDriveOpen => "open_wrapdrive",
             Self::TimelineOpen => "open_timeline",
             Self::TimelineChronology => "open_timeline_chronology",
@@ -107,6 +117,8 @@ impl PaletteAction {
             "backup_show_dir" => Self::BackupShowDir,
             "open_cockpit" => Self::CockpitOpen,
             "toggle_cockpit" => Self::CockpitToggle,
+            cmd if cmd == engram_core::notes_open_command() => Self::StickyNotesOpen,
+            cmd if cmd == engram_core::notes_toggle_command() => Self::StickyNotesToggle,
             "open_wrapdrive" => Self::WrapDriveOpen,
             "open_timeline" => Self::TimelineOpen,
             "open_timeline_chronology" => Self::TimelineChronology,

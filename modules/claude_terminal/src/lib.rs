@@ -12,11 +12,13 @@ use std::sync::mpsc;
 use engram_core::{CoreContext, CoreEvent, Module, ModuleResponse, RenderMode};
 
 pub mod config;
+mod corpus;
 mod process;
 mod render;
 mod token_log;
 
-use config::ClaudeTerminalConfig;
+use config::{ClaudeTerminalConfig, ScopeMode};
+use corpus::{read_excerpt, search_corpus, truncate_chars, CorpusHit};
 use process::ClaudeResponse;
 use render::{Exchange, RenderOutput, StatusKind};
 
@@ -31,6 +33,8 @@ pub struct ClaudeTerminalModule {
     status_msgs: Vec<(StatusKind, String)>,
     cumulative_in: u64,
     cumulative_out: u64,
+    current_file: Option<PathBuf>,
+    corpus_hits: Vec<CorpusHit>,
     closed: bool,
 }
 
@@ -47,6 +51,8 @@ impl Default for ClaudeTerminalModule {
             status_msgs: Vec::new(),
             cumulative_in: 0,
             cumulative_out: 0,
+            current_file: None,
+            corpus_hits: Vec::new(),
             closed: true,
         }
     }
@@ -70,7 +76,7 @@ impl Module for ClaudeTerminalModule {
         self.cumulative_in = ci;
         self.cumulative_out = co;
 
-        let log_dir = self.data_dir.join("logs").join("claude_terminal");
+        let log_dir = self.data_dir.join("logs").join("coh2b");
         if let Err(e) = std::fs::create_dir_all(&log_dir) {
             self.status_msgs.push((
                 StatusKind::Warn,
@@ -78,7 +84,7 @@ impl Module for ClaudeTerminalModule {
             ));
         } else {
             let now = chrono::Local::now();
-            let name = now.format("%d-%m-%Y-%Hh%M.typ").to_string();
+            let name = now.format("%Y-%m-%d.jsonl").to_string();
             let path = log_dir.join(name);
             match std::fs::OpenOptions::new()
                 .create(true)
@@ -109,7 +115,7 @@ impl Module for ClaudeTerminalModule {
 
         let viewport_id = egui::ViewportId::from_hash_of("claude_terminal");
         let builder = egui::ViewportBuilder::default()
-            .with_title("Engram Hive — Assistant CLI")
+            .with_title("Engram Hive — COH2B")
             .with_inner_size([700.0, 520.0]);
 
         let mut open_palette = false;
@@ -132,12 +138,18 @@ impl Module for ClaudeTerminalModule {
                     provider: self.config.provider.label(),
                     command: &self.config.command,
                     auth_mode: self.config.auth_mode,
+                    scope_mode: self.config.scope,
+                    analysis_mode: self.config.analysis_mode,
+                    current_file: self.current_file.as_deref(),
                     cumulative_in: self.cumulative_in,
                     cumulative_out: self.cumulative_out,
+                    corpus_hits: &self.corpus_hits,
                     history: &self.history,
                     pending: self.pending.is_some(),
                     question_draft: &mut self.question_draft,
                     status_msgs: &mut self.status_msgs,
+                    input_cost_per_1k: self.config.input_cost_per_1k,
+                    output_cost_per_1k: self.config.output_cost_per_1k,
                 };
                 let out = render::draw(ui, &mut state);
                 self.handle_render_output(out);
@@ -160,6 +172,10 @@ impl Module for ClaudeTerminalModule {
         match event {
             CoreEvent::FileIndexUpdated { project_root, .. } => {
                 self.project_root = Some(project_root.clone());
+                self.refresh_corpus_hits();
+            }
+            CoreEvent::OpenFileRequested(path) => {
+                self.current_file = Some(path.clone());
             }
             CoreEvent::OpenModuleWindowRequested(name) => {
                 if name == self.name() {
@@ -227,6 +243,8 @@ impl ClaudeTerminalModule {
     }
 
     fn handle_render_output(&mut self, out: RenderOutput) {
+        self.config.scope = out.scope_mode;
+        self.config.analysis_mode = out.analysis_mode;
         if let Some(question) = out.send_question {
             self.send_question(question);
         }
@@ -253,14 +271,113 @@ impl ClaudeTerminalModule {
             model: None,
         });
 
-        let rx = process::spawn_query(question, cwd, self.config.clone());
+        self.refresh_corpus_hits_for_query(&question);
+        let prompt = self.build_prompt(&question, &cwd);
+        let rx = process::spawn_query(prompt, cwd, self.config.clone());
         self.pending = Some(rx);
     }
 
+    fn build_prompt(&mut self, question: &str, cwd: &PathBuf) -> String {
+        let scope = self.config.scope;
+        let mode = self.config.analysis_mode;
+        let mut out = String::new();
+        out.push_str("Tu es un agent d'analyse en lecture seule. ");
+        out.push_str("Tu ne dois produire aucune modification de fichier.\n\n");
+        out.push_str(&format!("Mode d'analyse : {}\n", mode.label()));
+        out.push_str(&format!("Périmètre : {}\n", scope.label()));
+        out.push_str(&format!("Racine projet : {}\n\n", cwd.display()));
+
+        match scope {
+            ScopeMode::CurrentFile => {
+                if let Some(path) = &self.current_file {
+                    out.push_str(&format!("Fichier courant : {}\n\n", path.display()));
+                    match read_excerpt(path, 18_000) {
+                        Ok(text) => {
+                            out.push_str("=== CONTENU DU FICHIER ===\n");
+                            out.push_str(&truncate_chars(&text, 18_000));
+                            out.push_str("\n\n");
+                        }
+                        Err(e) => {
+                            out.push_str(&format!("(Contexte fichier indisponible : {e})\n\n"));
+                        }
+                    }
+                } else {
+                    out.push_str("(Aucun fichier courant connu)\n\n");
+                }
+            }
+            ScopeMode::SelectedText => {
+                out.push_str(
+                    "(Le texte sélectionné n'est pas encore câblé ; fallback sur le fichier courant si disponible.)\n\n",
+                );
+                if let Some(path) = &self.current_file {
+                    out.push_str(&format!("Fichier courant : {}\n\n", path.display()));
+                }
+            }
+            ScopeMode::Corpus | ScopeMode::Project => {
+                if self.corpus_hits.is_empty() {
+                    self.refresh_corpus_hits();
+                }
+                if self.corpus_hits.is_empty() {
+                    out.push_str("(Aucun extrait corpus indexé disponible.)\n\n");
+                } else {
+                    out.push_str("=== EXTRAITS CORPUS ===\n");
+                    for hit in self.corpus_hits.iter().take(8) {
+                        out.push_str(&format!(
+                            "- {} [{} | {} | {} mots]\n  {}\n",
+                            hit.path.display(),
+                            hit.file_stem,
+                            hit.section,
+                            hit.words_body,
+                            hit.snippet
+                        ));
+                    }
+                    out.push('\n');
+                }
+            }
+        }
+
+        out.push_str("=== QUESTION ===\n");
+        out.push_str(question);
+        out.push_str("\n\nRéponds avec des preuves, contre-preuves et incertitudes. ");
+        out.push_str("Si la réponse est factuelle, cite les fichiers et lignes si possible.");
+        out
+    }
+
+    fn refresh_corpus_hits(&mut self) {
+        let query = self.question_draft.trim().to_string();
+        self.refresh_corpus_hits_for_query(&query);
+    }
+
+    fn refresh_corpus_hits_for_query(&mut self, query: &str) {
+        let Some(root) = self.project_root.as_ref() else {
+            self.corpus_hits.clear();
+            return;
+        };
+        if query.is_empty() {
+            self.corpus_hits.clear();
+            return;
+        }
+        match search_corpus(root, query, 8) {
+            Ok(hits) => {
+                self.corpus_hits = hits;
+                if !self.corpus_hits.is_empty() {
+                    self.status_msgs.push((
+                        StatusKind::Ok,
+                        format!("Corpus mis à jour: {} résultat(s).", self.corpus_hits.len()),
+                    ));
+                }
+            }
+            Err(e) => {
+                self.status_msgs.push((StatusKind::Warn, e));
+                self.corpus_hits.clear();
+            }
+        }
+    }
+
     fn export_cut(&mut self) {
-        let log_dir = self.data_dir.join("logs").join("claude_terminal");
+        let log_dir = self.data_dir.join("logs").join("coh2b");
         let now = chrono::Local::now();
-        let name = now.format("%d-%m-%Y-%Hh%M.typ").to_string();
+        let name = now.format("%Y-%m-%d.jsonl").to_string();
         let path = log_dir.join(name);
         match std::fs::OpenOptions::new()
             .create(true)
@@ -282,20 +399,20 @@ impl ClaudeTerminalModule {
 
 fn append_log(log_file: &Option<PathBuf>, ex: &Exchange) {
     let Some(path) = log_file else { return };
-    let mut content = format!("## {} — Question\n\n{}\n\n", ex.timestamp, ex.question);
-    if let Some(ref answer) = ex.answer {
-        content.push_str(&format!("### Réponse\n\n{}\n\n", answer));
-    }
-    if let (Some(i), Some(o)) = (ex.input_tokens, ex.output_tokens) {
-        content.push_str(&format!("_Tokens : {} in / {} out_\n\n", i, o));
-    }
-    content.push_str("---\n\n");
+    let entry = serde_json::json!({
+        "timestamp": ex.timestamp,
+        "question": ex.question,
+        "answer": ex.answer,
+        "input_tokens": ex.input_tokens,
+        "output_tokens": ex.output_tokens,
+        "model": ex.model,
+    });
     if let Err(e) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open(path)
-        .and_then(|mut f| std::io::Write::write_all(&mut f, content.as_bytes()))
+        .and_then(|mut f| std::io::Write::write_all(&mut f, format!("{entry}\n").as_bytes()))
     {
-        tracing::warn!("Écriture log claude_terminal : {e}");
+        tracing::warn!("Écriture log coh2b : {e}");
     }
 }

@@ -497,6 +497,16 @@ impl FileTreeModule {
                 self.pending
                     .push(ModuleResponse::ToggleModuleWindow("cockpit".to_string()));
             }
+            PaletteAction::StickyNotesOpen => {
+                self.pending.push(ModuleResponse::OpenModuleWindow(
+                    engram_core::notes_module_name().to_string(),
+                ));
+            }
+            PaletteAction::StickyNotesToggle => {
+                self.pending.push(ModuleResponse::ToggleModuleWindow(
+                    engram_core::notes_module_name().to_string(),
+                ));
+            }
             PaletteAction::WrapDriveOpen => {
                 self.pending.push(ModuleResponse::OpenModuleWindow(
                     "wrapdrive_panel".to_string(),

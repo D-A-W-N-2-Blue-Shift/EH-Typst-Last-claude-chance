@@ -23,7 +23,6 @@ dirs = { workspace = true }
 tracing = { workspace = true }
 notify = { workspace = true }
 ropey = { workspace = true }
-syntect = { workspace = true }
 regex = { workspace = true }
 xxhash-rust = { workspace = true }
 chrono = { workspace = true }

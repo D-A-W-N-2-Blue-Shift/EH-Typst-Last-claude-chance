@@ -125,45 +125,21 @@ fn main() {
     });
     registry.register("editor", || Box::new(editor::EditorModule::default()));
     registry.register("cockpit", || Box::new(cockpit::CockpitModule::default()));
+    registry.register("sticky_notes", || {
+        Box::new(sticky_notes::StickyNotesModule::default())
+    });
     registry.register("timeline", || Box::new(timeline::TimelineModule::default()));
     registry.register("claude_terminal", || {
         Box::new(claude_terminal::ClaudeTerminalModule::default())
     });
 
-    let mut modules_cfg = ModulesConfig::load_from_licorne(&core_ctx.licorne, &registry);
-
-    // GARDE-FOU COLONNE VERTÉBRALE — file_tree, editor et cockpit ne sont
-    // pas des modules optionnels dans la base EH5. Sans eux, Engram_Hive
-    // est une coquille vide. Si l'utilisateur les retire de `engram.ron`,
-    // on les réinjecte seulement en mémoire et on le signale clairement.
-    const SPINE: &[&str] = &["file_tree", "editor", "cockpit"];
-    let mut injected = Vec::new();
-    for spine_name in SPINE {
-        let registered = registry.registered_names().any(|n| n == *spine_name);
-        let enabled = modules_cfg.enabled.iter().any(|n| n == spine_name);
-        if registered && !enabled {
-            modules_cfg.enabled.insert(0, (*spine_name).to_string());
-            injected.push(*spine_name);
-        }
-    }
-    if !injected.is_empty() {
-        let msg = format!(
-            "⚠ Colonne vertébrale manquante dans engram.ron : {} réinjecté(s) en mémoire.",
-            injected.join(", ")
-        );
-        tracing::warn!("{msg}");
-        eprintln!("{msg}");
-        startup_status.push(msg);
-    }
+    let modules_cfg = ModulesConfig::load_from_licorne(&core_ctx.licorne, &registry);
 
     // Un module enregistré mais absent de la section `modules` n'est PAS
     // chargé. Les modules volontairement désactivés par défaut (timeline,
     // claude_terminal) ne sont pas signalés comme erreur de configuration.
     const OPTIONAL_DISABLED: &[&str] = &["timeline", "claude_terminal"];
     for name in registry.registered_names() {
-        if SPINE.contains(&name) {
-            continue;
-        } // déjà traité par le garde-fou
         if OPTIONAL_DISABLED.contains(&name) {
             continue;
         }
@@ -305,6 +281,20 @@ impl HiveApp {
                     files,
                 });
             }
+            ModuleResponse::PublishNoteIndex {
+                file_path,
+                note_count,
+            } => {
+                tracing::debug!(
+                    "Index notes publié : {} note(s) pour {}",
+                    note_count,
+                    file_path.display()
+                );
+                self.queued_events.push(CoreEvent::NoteIndexUpdated {
+                    file_path,
+                    note_count,
+                });
+            }
             ModuleResponse::FocusModeChanged(active) => {
                 tracing::info!("Mode focus : {active}");
                 self.queued_events.push(CoreEvent::FocusModeChanged(active));
@@ -419,6 +409,14 @@ impl HiveApp {
             }
             file_tree::palette::PaletteAction::CockpitToggle => {
                 self.process(ModuleResponse::ToggleModuleWindow("cockpit".to_string()));
+            }
+            file_tree::palette::PaletteAction::StickyNotesOpen => {
+                self.process(ModuleResponse::OpenModuleWindow("sticky_notes".to_string()));
+            }
+            file_tree::palette::PaletteAction::StickyNotesToggle => {
+                self.process(ModuleResponse::ToggleModuleWindow(
+                    "sticky_notes".to_string(),
+                ));
             }
             file_tree::palette::PaletteAction::WrapDriveOpen => {
                 self.process(ModuleResponse::OpenModuleWindow(
@@ -570,7 +568,12 @@ impl eframe::App for HiveApp {
         // demande un repaint dans 16ms via le timer winit, qui fonctionne
         // même quand la fenêtre est minimisée. En état visible, la requête
         // est fusionnée avec la vsync du compositeur : coût négligeable.
-        let active_children: usize = self.modules.iter().map(|m| m.active_viewport_count()).sum();
+        let active_children: usize = self
+            .modules
+            .iter()
+            .filter(|m| m.name() != "cockpit")
+            .map(|m| m.active_viewport_count())
+            .sum();
         if active_children > 0 {
             ctx.request_repaint_after(std::time::Duration::from_millis(16));
         }

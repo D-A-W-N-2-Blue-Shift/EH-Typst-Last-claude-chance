@@ -23,5 +23,8 @@ pub use backup::{BackupConfig, BackupHandle};
 pub use config::{ModuleRegistry, ModulesConfig};
 pub use ipc::{IpcCommand, IpcServer};
 pub use licorne::Licorne;
-pub use module_api::{CoreContext, CoreEvent, Module, ModuleResponse, RenderMode};
+pub use module_api::{
+    notes_module_name, notes_open_command, notes_toggle_command, CoreContext, CoreEvent, Module,
+    ModuleResponse, RenderMode,
+};
 pub use theme::Palette;

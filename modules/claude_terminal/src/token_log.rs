@@ -1,8 +1,8 @@
 // ============================================================================
 // modules/claude_terminal/src/token_log.rs — Journal JSONL consommation tokens
 //
-// Chaque appel CLI claude réussi ajoute une ligne JSON dans
-// ~/.local/share/engram_hive/claude_terminal_tokens.jsonl.
+// Chaque appel CLI réussi ajoute une ligne JSON dans
+// ~/.local/share/engram_hive_typst/logs/coh2b_tokens.jsonl.
 // Lecture cumulative pour affichage en bannière session.
 // ============================================================================
 
@@ -19,13 +19,18 @@ pub struct TokenEntry {
 }
 
 fn tokens_path(data_dir: &Path) -> PathBuf {
-    data_dir.join("claude_terminal_tokens.jsonl")
+    data_dir
+        .join("logs")
+        .join("coh2b")
+        .join("coh2b_tokens.jsonl")
 }
 
 pub fn log_tokens(data_dir: &Path, entry: &TokenEntry) -> Result<(), String> {
-    fs::create_dir_all(data_dir)
-        .map_err(|e| format!("Création {} impossible : {e}", data_dir.display()))?;
     let path = tokens_path(data_dir);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Création {} impossible : {e}", parent.display()))?;
+    }
     let line =
         serde_json::to_string(entry).map_err(|e| format!("Sérialisation token entry : {e}"))?;
     let mut file = OpenOptions::new()

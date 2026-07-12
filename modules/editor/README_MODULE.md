@@ -13,7 +13,8 @@ Cinq fichiers ouverts = cinq fenêtres, le WM tile comme il veut.
   couper/copier/coller, Tab = 2 espaces, auto-continuation de listes
   (`- `, `* `, `+ `, `> `, `1. ` — ligne vide + Entrée sort de la liste).
 - Coloration markdown **Kate-like** : les marqueurs restent visibles et
-  colorés (syntect + cache d'états par ligne, voir §2). Frontmatter YAML
+  colorés (coloration locale + cache d'états par ligne, voir §2).
+  Frontmatter YAML
   zoné, `[[wikilinks]]` aux crochets quasi invisibles, `#tags`,
   `% commentaires` grisés, blocs de code sur fond dédié, citations à barre.
 - Smart typography fr/en : `«»`, `’`, `—` (protégé en début de ligne),
@@ -84,10 +85,10 @@ Pas d'instance qui tourne = message clair et code retour 1.
   `line_at_y` en O(log N) ; seules les lignes visibles sont colorées,
   mises en page et peintes. Le déplacement vertical est VISUEL (lignes
   wrappées) via la géométrie des galleys.
-- **Coloration** (`highlight.rs`) : syntect tokenise (Markdown + YAML du
-  set par défaut), les couleurs viennent du thème RON — jamais des thèmes
-  syntect. `state_cache[i] = (ParseState, ScopeStack)` à la fin de la
-  ligne i : scroller à la ligne 80 d'un frontmatter de 150 lignes part de
+- **Coloration** (`highlight.rs`) : coloration locale ligne par ligne,
+  les couleurs viennent du thème RON — jamais d'un thème externe.
+  `state_cache[i]` garde l'état de bloc à la fin de la ligne i :
+  scroller à la ligne 80 d'un frontmatter de 150 lignes part de
   `state_cache[79]`. Une frappe n'invalide que l'aval ; le rattrapage est
   budgété (2000 lignes/frame max) — jamais de freeze.
 - **Threads** : recherche regex et comptage de mots clonent le rope
@@ -120,7 +121,7 @@ Le reste de la ruche ne me connaît pas : je ne parle au core que via
 |---|---|
 | `engram_core` | trait Module, ModuleResponse/CoreEvent, IPC |
 | `ropey` | buffer texte O(log N), clone O(1) pour les threads |
-| `syntect` (sans onig, `default-fancy`) | tokenisation Markdown/YAML |
+| `highlight.rs` local | coloration ligne par ligne |
 | `serde_yaml` | frontmatter (`goal:`, `language:`, `smart_typography:`) |
 | `serde` / `ron` | configs + session |
 | `serde_json` | commandes IPC |
@@ -144,7 +145,7 @@ Le reste de la ruche ne me connaît pas : je ne parle au core que via
    entre eux.
 3. **Pas de `theme.ron` dans le repo** : défauts = palette OLED noir +
    rose néon du core, chaque couleur surchargeable dans `licorne-a-gerber_editor.ron`.
-4. **`comrak` non embarqué** : syntect (imposé) + analyses de ligne
+4. **`comrak` non embarqué** : la coloration locale + analyses de ligne
    couvrent la détection d'éléments. Un second parseur markdown complet
    inutilisé serait une dette ; il entrera en Phase 2 (export).
 5. **`rayon` non embarqué** : `std::thread` + `mpsc` suffisent (une
