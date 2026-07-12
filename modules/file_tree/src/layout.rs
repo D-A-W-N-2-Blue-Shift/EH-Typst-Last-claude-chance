@@ -8,6 +8,8 @@
 
 use std::path::{Path, PathBuf};
 
+use engram_core::atomic_write;
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct WindowSession {
@@ -52,7 +54,7 @@ impl SessionConfig {
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        std::fs::write(&path, body)
+        atomic_write(&path, body.as_bytes())
             .map_err(|e| format!("Impossible d'écrire {} : {e}", path.display()))
     }
 }

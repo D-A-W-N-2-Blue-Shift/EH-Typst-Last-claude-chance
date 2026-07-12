@@ -186,6 +186,9 @@ fn main() {
         frame_time_ema: 0.0,
         frame_counter: 0,
         restart_requested: false,
+        heartbeat_last_needed: false,
+        heartbeat_last_minimized: false,
+        heartbeat_last_children: 0,
     };
     // Icône d'application : absente ⇒ icône système par défaut, pas de crash.
     let mut viewport = egui::ViewportBuilder::default()
@@ -240,6 +243,9 @@ struct HiveApp {
     /// Un module a demandé le redémarrage du programme (bouton reboot cockpit).
     /// Traité en fin de frame : relance différée + fermeture de la racine.
     restart_requested: bool,
+    heartbeat_last_needed: bool,
+    heartbeat_last_minimized: bool,
+    heartbeat_last_children: usize,
 }
 
 impl HiveApp {
@@ -294,6 +300,11 @@ impl HiveApp {
                     file_path,
                     note_count,
                 });
+            }
+            ModuleResponse::StickyNoteMarkerSync { previous, current } => {
+                tracing::debug!(target: "core", "Synchro marqueur Sticky Notes demandée.");
+                self.queued_events
+                    .push(CoreEvent::StickyNoteMarkerSyncRequested { previous, current });
             }
             ModuleResponse::FocusModeChanged(active) => {
                 tracing::info!("Mode focus : {active}");
@@ -574,7 +585,24 @@ impl eframe::App for HiveApp {
             .filter(|m| m.name() != "cockpit")
             .map(|m| m.active_viewport_count())
             .sum();
-        if active_children > 0 {
+        let minimized = ctx.input(|i| i.viewport().minimized.unwrap_or(false));
+        let heartbeat_needed = minimized && active_children > 0;
+        if heartbeat_needed != self.heartbeat_last_needed
+            || minimized != self.heartbeat_last_minimized
+            || active_children != self.heartbeat_last_children
+        {
+            tracing::debug!(
+                target: "engram_hive",
+                "heartbeat minimized={} active_children={} request={}",
+                minimized,
+                active_children,
+                heartbeat_needed
+            );
+            self.heartbeat_last_needed = heartbeat_needed;
+            self.heartbeat_last_minimized = minimized;
+            self.heartbeat_last_children = active_children;
+        }
+        if heartbeat_needed {
             ctx.request_repaint_after(std::time::Duration::from_millis(16));
         }
 

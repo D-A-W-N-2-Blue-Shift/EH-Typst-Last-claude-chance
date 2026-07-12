@@ -41,7 +41,8 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
-use engram_core::{CoreContext, CoreEvent, Module, ModuleResponse};
+use engram_core::atomic_write;
+use engram_core::{CoreContext, CoreEvent, Module, ModuleResponse, StickyNoteMarkerRef};
 
 use buffer::{BufferMap, SharedBuffer, SharedBufferExt};
 use viewport::FontBook;
@@ -94,7 +95,7 @@ impl EditorSession {
     fn save(&self, dir: &Path) -> Result<(), String> {
         let raw = ron::ser::to_string_pretty(self, ron::ser::PrettyConfig::default())
             .map_err(|e| format!("Session insérialisable : {e}"))?;
-        std::fs::write(Self::path(dir), raw)
+        atomic_write(&Self::path(dir), raw.as_bytes())
             .map_err(|e| format!("Sauvegarde de session ratée : {e}"))
     }
 }
@@ -493,6 +494,197 @@ impl EditorModule {
         }
     }
 
+    fn sync_sticky_note_marker(
+        &mut self,
+        previous: Option<StickyNoteMarkerRef>,
+        current: Option<StickyNoteMarkerRef>,
+    ) -> Result<(), String> {
+        if previous
+            .as_ref()
+            .zip(current.as_ref())
+            .is_some_and(|(prev, curr)| {
+                prev.path == curr.path && prev.anchor_line == curr.anchor_line && prev.id == curr.id
+            })
+        {
+            return Ok(());
+        }
+        if let Some(prev) = previous.as_ref() {
+            self.apply_sticky_note_marker(prev, false)?;
+        }
+        if let Some(curr) = current.as_ref() {
+            self.apply_sticky_note_marker(curr, true)?;
+        }
+        Ok(())
+    }
+
+    fn apply_sticky_note_marker(
+        &mut self,
+        target: &StickyNoteMarkerRef,
+        insert: bool,
+    ) -> Result<(), String> {
+        let marker = sticky_notes_marker(&target.path, &target.id);
+        let lookup = self.lookup_buffer_path(&target.path);
+        let buffer_open = self.windows.iter().any(|w| w.canonical == lookup);
+        if buffer_open {
+            let Some(shared) = self.buffers.get(&lookup) else {
+                return Err(format!(
+                    "Le fichier {} est ouvert mais son buffer est introuvable. \
+                     La synchro Sticky Notes est refusée sans secours disque.",
+                    target.path.display()
+                ));
+            };
+            self.apply_marker_to_open_buffer(&shared, &marker, target.anchor_line, insert)?;
+            return Ok(());
+        }
+        self.apply_marker_to_disk(&target.path, &marker, target.anchor_line, insert)
+    }
+
+    fn lookup_buffer_path(&self, path: &Path) -> PathBuf {
+        if path.exists() {
+            std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+        } else {
+            path.to_path_buf()
+        }
+    }
+
+    fn apply_marker_to_open_buffer(
+        &mut self,
+        shared: &SharedBuffer,
+        marker: &str,
+        anchor_line: i64,
+        insert: bool,
+    ) -> Result<(), String> {
+        let mut buf = shared.write_buf();
+        let cursor_before = self
+            .windows
+            .iter()
+            .find(|w| std::sync::Arc::ptr_eq(&w.buffer, shared))
+            .map(|w| w.cursor)
+            .unwrap_or(0);
+        buf.begin_txn(buffer::TxnKind::Other, cursor_before);
+        let (start, removed_len, inserted_len) = if insert {
+            self.insert_marker_into_buffer(&mut buf, marker, anchor_line)?
+        } else {
+            self.remove_marker_from_buffer(&mut buf, marker)?
+        };
+        if start == 0 && removed_len == 0 && inserted_len == 0 {
+            buf.end_txn(cursor_before);
+            buf.commit_txn();
+            return Ok(());
+        }
+        let cursor_after =
+            self.remap_positions_in_windows(shared, start, removed_len, inserted_len);
+        buf.end_txn(cursor_after);
+        buf.commit_txn();
+        Ok(())
+    }
+
+    fn insert_marker_into_buffer(
+        &self,
+        buf: &mut buffer::Buffer,
+        marker: &str,
+        anchor_line: i64,
+    ) -> Result<(usize, usize, usize), String> {
+        if buf
+            .rope
+            .lines()
+            .any(|line| line.to_string().contains(marker))
+        {
+            return Ok((0, 0, 0));
+        }
+        let trailing_newline = has_trailing_newline(&buf.rope);
+        let visible_lines = visible_line_count(&buf.rope);
+        let target_line = anchor_line.max(1) as usize - 1;
+        let insert_line = target_line.min(visible_lines);
+        let start = if insert_line < visible_lines {
+            buf.rope.line_to_char(insert_line)
+        } else {
+            buf.rope.len_chars()
+        };
+        let inserted_text = if insert_line < visible_lines {
+            let line_text = buf.rope.line(insert_line).to_string();
+            format!("{marker}{line_text}")
+        } else {
+            let newline = preferred_newline(&buf.rope);
+            if trailing_newline {
+                format!("{marker}{newline}")
+            } else {
+                marker.to_string()
+            }
+        };
+        let inserted_len = inserted_text.chars().count();
+        buf.insert(start, &inserted_text);
+        Ok((start, 0, inserted_len))
+    }
+
+    fn remove_marker_from_buffer(
+        &self,
+        buf: &mut buffer::Buffer,
+        marker: &str,
+    ) -> Result<(usize, usize, usize), String> {
+        let Some(line_idx) =
+            (0..buf.rope.len_lines()).find(|&idx| buf.rope.line(idx).to_string().contains(marker))
+        else {
+            return Ok((0, 0, 0));
+        };
+        let start = buf.rope.line_to_char(line_idx);
+        let end = if line_idx + 1 < buf.rope.len_lines() {
+            buf.rope.line_to_char(line_idx + 1)
+        } else {
+            buf.rope.len_chars()
+        };
+        let removed_len = end.saturating_sub(start);
+        buf.delete(start, end);
+        Ok((start, removed_len, 0))
+    }
+
+    fn remap_positions_in_windows(
+        &mut self,
+        shared: &SharedBuffer,
+        start: usize,
+        removed_len: usize,
+        inserted_len: usize,
+    ) -> usize {
+        let mut cursor_after = 0;
+        for win in &mut self.windows {
+            if !std::sync::Arc::ptr_eq(&win.buffer, shared) {
+                continue;
+            }
+            win.cursor = remap_position(win.cursor, start, removed_len, inserted_len);
+            if let Some(anchor) = win.anchor {
+                win.anchor = Some(remap_position(anchor, start, removed_len, inserted_len));
+            }
+            cursor_after = win.cursor;
+        }
+        cursor_after
+    }
+
+    fn apply_marker_to_disk(
+        &self,
+        path: &Path,
+        marker: &str,
+        anchor_line: i64,
+        insert: bool,
+    ) -> Result<(), String> {
+        let mut snapshot = match TextSnapshot::read(path) {
+            Ok(snapshot) => snapshot,
+            Err(e) if !insert && is_missing_file_error(&e) => return Ok(()),
+            Err(e) => return Err(e),
+        };
+        if insert {
+            if snapshot.lines.iter().any(|line| line.contains(marker)) {
+                return Ok(());
+            }
+            let pos = anchor_line.max(1) as usize;
+            let insert_at = pos.saturating_sub(1).min(snapshot.lines.len());
+            snapshot.insert_line(insert_at, marker.to_string());
+        } else if !snapshot.remove_matching_line(marker) {
+            return Ok(());
+        }
+        atomic_write(path, snapshot.to_text().as_bytes())
+            .map_err(|e| format!("Impossible d'écrire {} : {e}", path.display()))
+    }
+
     fn typst_open_kate(&mut self, path: &Path) -> Result<(), String> {
         match self.typst.as_ref() {
             Some(typst) => typst.open_kate(path),
@@ -624,6 +816,134 @@ impl EditorModule {
         self.session_dirty = false;
         self.last_session_save = Instant::now();
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NewlineKind {
+    Lf,
+    Crlf,
+}
+
+#[derive(Debug, Clone)]
+struct TextSnapshot {
+    lines: Vec<String>,
+    newline: NewlineKind,
+    trailing_newline: bool,
+}
+
+impl TextSnapshot {
+    fn read(path: &Path) -> Result<Self, String> {
+        let text = std::fs::read_to_string(path)
+            .map_err(|e| format!("Impossible de lire {} : {e}", path.display()))?;
+        Ok(Self::from_text(&text))
+    }
+
+    fn from_text(text: &str) -> Self {
+        let newline = if text.contains("\r\n") {
+            NewlineKind::Crlf
+        } else {
+            NewlineKind::Lf
+        };
+        let trailing_newline = text.ends_with('\n');
+        let mut lines = text
+            .split('\n')
+            .map(|line| {
+                if matches!(newline, NewlineKind::Crlf) {
+                    line.strip_suffix('\r').unwrap_or(line).to_string()
+                } else {
+                    line.to_string()
+                }
+            })
+            .collect::<Vec<_>>();
+        if trailing_newline {
+            let _ = lines.pop();
+        }
+        Self {
+            lines,
+            newline,
+            trailing_newline,
+        }
+    }
+
+    fn insert_line(&mut self, index: usize, line: String) {
+        let index = index.min(self.lines.len());
+        self.lines.insert(index, line);
+    }
+
+    fn remove_matching_line(&mut self, marker: &str) -> bool {
+        let before = self.lines.len();
+        self.lines.retain(|line| !line.contains(marker));
+        before != self.lines.len()
+    }
+
+    fn to_text(&self) -> String {
+        let delim = match self.newline {
+            NewlineKind::Lf => "\n",
+            NewlineKind::Crlf => "\r\n",
+        };
+        let mut out = self.lines.join(delim);
+        if self.trailing_newline && (!out.is_empty() || !self.lines.is_empty()) {
+            out.push_str(delim);
+        }
+        out
+    }
+}
+
+fn sticky_notes_marker(path: &Path, id: &str) -> String {
+    if path
+        .extension()
+        .and_then(|s| s.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("typ"))
+    {
+        format!("/* note:{id} */")
+    } else {
+        format!("<!-- note:{id} -->")
+    }
+}
+
+fn has_trailing_newline(rope: &ropey::Rope) -> bool {
+    rope.len_lines() > 0 && rope.line(rope.len_lines() - 1).len_chars() == 0
+}
+
+fn visible_line_count(rope: &ropey::Rope) -> usize {
+    if has_trailing_newline(rope) {
+        rope.len_lines().saturating_sub(1)
+    } else {
+        rope.len_lines()
+    }
+}
+
+fn preferred_newline(rope: &ropey::Rope) -> &'static str {
+    if rope.len_lines() == 0 {
+        return "\n";
+    }
+    let idx = if has_trailing_newline(rope) && rope.len_lines() > 1 {
+        rope.len_lines().saturating_sub(2)
+    } else {
+        rope.len_lines().saturating_sub(1)
+    };
+    let line = rope.line(idx).to_string();
+    if line.ends_with("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    }
+}
+
+fn remap_position(pos: usize, start: usize, removed_len: usize, inserted_len: usize) -> usize {
+    if pos < start {
+        return pos;
+    }
+    let end = start.saturating_add(removed_len);
+    if pos >= end {
+        pos.saturating_sub(removed_len).saturating_add(inserted_len)
+    } else {
+        start.saturating_add(inserted_len)
+    }
+}
+
+fn is_missing_file_error(err: &str) -> bool {
+    err.contains("No such file") || err.contains("not found") || err.contains("introuvable")
 }
 
 // ===========================================================================
@@ -846,6 +1166,11 @@ impl Module for EditorModule {
                     if &win.canonical == file_path {
                         win.note_count = *note_count;
                     }
+                }
+            }
+            CoreEvent::StickyNoteMarkerSyncRequested { previous, current } => {
+                if let Err(e) = self.sync_sticky_note_marker(previous.clone(), current.clone()) {
+                    self.glados(e);
                 }
             }
             _ => {}
@@ -1676,4 +2001,78 @@ fn normalize(s: &str) -> String {
         .filter(|c| c.is_alphanumeric())
         .collect::<String>()
         .to_lowercase()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engram_core::StickyNoteMarkerRef;
+
+    #[test]
+    fn sticky_note_marker_open_buffer_keeps_disk_unchanged(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("scene.typ");
+        std::fs::write(&path, "alpha\nbravo\n")?;
+
+        let mut editor = EditorModule::default();
+        let (canonical, shared) = editor.buffers.open(&path)?;
+        let win = EditorWindow::new(
+            1,
+            canonical.clone(),
+            std::sync::Arc::clone(&shared),
+            12.0,
+            false,
+        );
+        editor.windows.push(win);
+        editor.windows[0].cursor = 6;
+
+        editor.sync_sticky_note_marker(
+            None,
+            Some(StickyNoteMarkerRef {
+                path: canonical.clone(),
+                anchor_line: 2,
+                id: "abc".into(),
+            }),
+        )?;
+
+        assert_eq!(std::fs::read_to_string(&path)?, "alpha\nbravo\n");
+        let text = shared.read_buf().rope.to_string();
+        assert!(text.contains("/* note:abc */"));
+        assert!(shared.read_buf().dirty);
+        assert!(editor.windows[0].cursor >= 6);
+        Ok(())
+    }
+
+    #[test]
+    fn sticky_note_marker_closed_buffer_preserves_crlf() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("scene.typ");
+        std::fs::write(&path, "alpha\r\nbravo\r\n")?;
+
+        let editor = EditorModule::default();
+        editor.apply_marker_to_disk(&path, "/* note:abc */", 2, true)?;
+
+        assert_eq!(
+            std::fs::read_to_string(&path)?,
+            "alpha\r\n/* note:abc */\r\nbravo\r\n"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn sticky_note_marker_closed_roundtrip_restores_original_text(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("scene.typ");
+        let original = "alpha\r\nbravo\r\n";
+        std::fs::write(&path, original)?;
+
+        let editor = EditorModule::default();
+        editor.apply_marker_to_disk(&path, "/* note:abc */", 2, true)?;
+        editor.apply_marker_to_disk(&path, "/* note:abc */", 2, false)?;
+
+        assert_eq!(std::fs::read_to_string(&path)?, original);
+        Ok(())
+    }
 }

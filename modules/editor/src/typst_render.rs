@@ -4,6 +4,7 @@ use std::process::Command;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Instant;
 
+use engram_core::atomic_write;
 use regex::Regex;
 
 use crate::buffer::{SharedBuffer, SharedBufferExt};
@@ -380,7 +381,9 @@ impl TypstRenderService {
             let _ = std::fs::create_dir_all(parent);
         }
         if let Ok(raw) = ron::ser::to_string_pretty(snapshot, ron::ser::PrettyConfig::default()) {
-            let _ = std::fs::write(&self.status_file, raw);
+            if let Err(e) = atomic_write(&self.status_file, raw.as_bytes()) {
+                tracing::warn!(target: "editor", "Statut Typst non écrit : {e}");
+            }
         }
     }
 }

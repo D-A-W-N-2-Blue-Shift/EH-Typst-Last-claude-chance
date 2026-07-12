@@ -24,6 +24,7 @@ use crate::typography::{self, Lang};
 use crate::viewport::word_bounds;
 use crate::wikilinks::{self, WikilinkIndex};
 use crate::EditorWindow;
+use engram_core::atomic_write;
 
 /// Lecture synchrone du presse-papier (pour le « Coller » du menu contextuel ;
 /// la frappe Ctrl+V passe, elle, par l'événement egui::Event::Paste). Toute
@@ -105,7 +106,7 @@ impl Keybinds {
                 content.push_str(&format!("    \"{action}\": \"{chord}\",\n"));
             }
             content.push_str("}\n");
-            if let Err(e) = std::fs::write(&path, content) {
+            if let Err(e) = atomic_write(&path, content.as_bytes()) {
                 errors.push(format!("Impossible d'écrire {} : {e}.", path.display()));
             }
             return (Self { map }, errors);

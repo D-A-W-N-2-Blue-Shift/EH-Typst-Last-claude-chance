@@ -27,6 +27,14 @@ pub const fn notes_toggle_command() -> &'static str {
     concat!("toggle_", "sticky", "_notes")
 }
 
+/// Cible d'un marqueur Sticky Notes dans un fichier source.
+#[derive(Debug, Clone)]
+pub struct StickyNoteMarkerRef {
+    pub path: PathBuf,
+    pub anchor_line: i64,
+    pub id: String,
+}
+
 /// La seule voie de communication module → core.
 #[derive(Debug, Clone)]
 pub enum ModuleResponse {
@@ -59,6 +67,14 @@ pub enum ModuleResponse {
     PublishNoteIndex {
         file_path: PathBuf,
         note_count: usize,
+    },
+
+    /// Demande de synchronisation d'un marqueur Sticky Notes dans le fichier
+    /// source. Le core relaie vers l'éditeur, qui modifie le buffer ouvert
+    /// s'il existe, ou bien le fichier disque si le buffer n'est pas ouvert.
+    StickyNoteMarkerSync {
+        previous: Option<StickyNoteMarkerRef>,
+        current: Option<StickyNoteMarkerRef>,
     },
 
     /// La fenêtre du module a bougé. Le core ne fait qu'enregistrer/loguer
@@ -134,6 +150,14 @@ pub enum CoreEvent {
     NoteIndexUpdated {
         file_path: PathBuf,
         note_count: usize,
+    },
+
+    /// Relais d'un ModuleResponse::StickyNoteMarkerSync. L'éditeur applique
+    /// la mutation au buffer ouvert si présent, sinon écrit atomiquement sur
+    /// disque.
+    StickyNoteMarkerSyncRequested {
+        previous: Option<StickyNoteMarkerRef>,
+        current: Option<StickyNoteMarkerRef>,
     },
 
     /// Le mode focus a changé (relais d'un ModuleResponse::FocusModeChanged).

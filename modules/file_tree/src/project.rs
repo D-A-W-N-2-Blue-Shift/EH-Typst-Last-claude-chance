@@ -18,6 +18,8 @@
 
 use std::path::{Path, PathBuf};
 
+use engram_core::atomic_write;
+
 /// Config légère du projet, stockée hors du dossier projet.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
@@ -194,7 +196,7 @@ pub fn scaffold(root: &Path) -> Result<(), String> {
     for (rel, content) in STANDARD_FILES {
         let p = root.join(rel);
         if !p.exists() {
-            std::fs::write(&p, content)
+            atomic_write(&p, content.as_bytes())
                 .map_err(|e| format!("Impossible d'écrire {} : {e}", p.display()))?;
         }
     }
@@ -242,7 +244,7 @@ pub fn save_last_project(module_config_dir: &Path, root: &Path) {
          LastProject(\n    path: {:?},\n)\n",
         root.display().to_string()
     );
-    if let Err(e) = std::fs::write(last_project_file(module_config_dir), body) {
+    if let Err(e) = atomic_write(&last_project_file(module_config_dir), body.as_bytes()) {
         tracing::warn!("Impossible de mémoriser le dernier projet : {e}");
     }
 }
@@ -280,9 +282,9 @@ pub fn new_file(parent: &Path, name: &str) -> Result<PathBuf, String> {
              endroit, ton filesystem refuse et moi aussi."
         ));
     }
-    std::fs::write(
+    atomic_write(
         &path,
-        "/*\n---\nstatut: brouillon\n---\n*/\n\n= Nouveau document\n\n",
+        "/*\n---\nstatut: brouillon\n---\n*/\n\n= Nouveau document\n\n".as_bytes(),
     )
     .map_err(|e| format!("Impossible de créer {} : {e}", path.display()))?;
     Ok(path)

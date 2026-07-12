@@ -151,6 +151,6 @@ pub fn rewrite_context(root: &Path) -> Result<(), String> {
     }
     lines.sort();
     let path = dir.join(".context");
-    std::fs::write(&path, lines.join("\n") + "\n")
+    engram_core::atomic_write(&path, (lines.join("\n") + "\n").as_bytes())
         .map_err(|e| format!("Impossible d'écrire {} : {e}", path.display()))
 }

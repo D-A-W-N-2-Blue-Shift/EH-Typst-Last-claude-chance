@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use engram_core::atomic_write;
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -22,18 +24,13 @@ impl Default for Config {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
 pub enum SortMode {
+    #[default]
     DateDesc,
     DateAsc,
     File,
     TagType,
-}
-
-impl Default for SortMode {
-    fn default() -> Self {
-        Self::DateDesc
-    }
 }
 
 impl SortMode {
@@ -82,7 +79,8 @@ impl Config {
         }
         let body = ron::ser::to_string_pretty(self, ron::ser::PrettyConfig::default())
             .map_err(|e| format!("Sérialisation sticky_notes.ron : {e}"))?;
-        std::fs::write(&path, body).map_err(|e| format!("Écriture {} : {e}", path.display()))?;
+        atomic_write(&path, body.as_bytes())
+            .map_err(|e| format!("Écriture {} : {e}", path.display()))?;
         Ok(path)
     }
 }

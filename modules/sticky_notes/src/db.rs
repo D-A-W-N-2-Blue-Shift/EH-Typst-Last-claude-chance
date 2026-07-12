@@ -1,9 +1,10 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::fs::File;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use chrono::Utc;
+#[cfg(test)]
+use engram_core::atomic_write;
+use getrandom::getrandom;
 use rusqlite::{params, Connection, OpenFlags};
 
 #[derive(Debug, Clone)]
@@ -41,15 +42,89 @@ pub struct NoteDraft {
 }
 
 impl NoteDraft {
-    pub fn new() -> Self {
-        Self {
-            id: new_uuid_v4(),
+    pub fn new() -> Result<Self, String> {
+        Ok(Self {
+            id: new_uuid_v4()?,
             contenu: String::new(),
             source_path: None,
             anchor_line: Some(1),
             tags: Vec::new(),
             links: Vec::new(),
+        })
+    }
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Newline {
+    Lf,
+    Crlf,
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone)]
+struct TextSnapshot {
+    lines: Vec<String>,
+    newline: Newline,
+    trailing_newline: bool,
+}
+
+#[cfg(test)]
+impl TextSnapshot {
+    fn read(path: &Path) -> Result<Self, String> {
+        let text = std::fs::read_to_string(path)
+            .map_err(|e| format!("Impossible de lire {} : {e}", path.display()))?;
+        Ok(Self::from_text(&text))
+    }
+
+    fn from_text(text: &str) -> Self {
+        let newline = if text.contains("\r\n") {
+            Newline::Crlf
+        } else {
+            Newline::Lf
+        };
+        let trailing_newline = text.ends_with('\n');
+        let mut lines = text
+            .split('\n')
+            .map(|line| {
+                if matches!(newline, Newline::Crlf) {
+                    line.strip_suffix('\r').unwrap_or(line).to_string()
+                } else {
+                    line.to_string()
+                }
+            })
+            .collect::<Vec<_>>();
+        if trailing_newline {
+            let _ = lines.pop();
         }
+        Self {
+            lines,
+            newline,
+            trailing_newline,
+        }
+    }
+
+    fn insert_line(&mut self, index: usize, line: String) {
+        let index = index.min(self.lines.len());
+        self.lines.insert(index, line);
+    }
+
+    fn remove_matching_line(&mut self, marker: &str) -> bool {
+        let before = self.lines.len();
+        self.lines.retain(|line| !line.contains(marker));
+        before != self.lines.len()
+    }
+
+    fn to_text(&self) -> String {
+        let delim = match self.newline {
+            Newline::Lf => "\n",
+            Newline::Crlf => "\r\n",
+        };
+        let mut out = self.lines.join(delim);
+        if self.trailing_newline && (!out.is_empty() || !self.lines.is_empty()) {
+            out.push_str(delim);
+        }
+        out
     }
 }
 
@@ -76,10 +151,11 @@ fn open_db(project_root: &Path) -> Result<Connection, String> {
             | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
     .map_err(|e| e.to_string())?;
-    conn.busy_timeout(std::time::Duration::from_millis(1500))
+    conn.busy_timeout(std::time::Duration::from_millis(2000))
         .map_err(|e| e.to_string())?;
     conn.execute_batch(
         "
+        PRAGMA journal_mode = WAL;
         PRAGMA foreign_keys = ON;
         CREATE TABLE IF NOT EXISTS notes (
             id          TEXT PRIMARY KEY,
@@ -116,7 +192,7 @@ pub fn load_notes(project_root: &Path) -> Result<Vec<NoteRecord>, String> {
              ORDER BY updated_at DESC",
         )
         .map_err(|e| e.to_string())?;
-    let mut rows = stmt
+    let rows = stmt
         .query_map([], |row| {
             Ok(NoteRecord {
                 id: row.get(0)?,
@@ -132,7 +208,7 @@ pub fn load_notes(project_root: &Path) -> Result<Vec<NoteRecord>, String> {
         })
         .map_err(|e| e.to_string())?;
     let mut notes = Vec::new();
-    while let Some(row) = rows.next() {
+    for row in rows {
         let mut note = row.map_err(|e| e.to_string())?;
         note.tags = load_tags(&conn, &note.id)?;
         note.links = load_links(&conn, &note.id)?;
@@ -156,12 +232,12 @@ pub fn load_counts(project_root: &Path) -> Result<BTreeMap<PathBuf, usize>, Stri
         )
         .map_err(|e| e.to_string())?;
     let mut out = BTreeMap::new();
-    let mut rows = stmt
+    let rows = stmt
         .query_map([], |row| {
             Ok((row.get::<_, Option<String>>(0)?, row.get::<_, i64>(1)?))
         })
         .map_err(|e| e.to_string())?;
-    while let Some(row) = rows.next() {
+    for row in rows {
         let (path, count) = row.map_err(|e| e.to_string())?;
         if let Some(path) = path {
             out.insert(PathBuf::from(path), count.max(0) as usize);
@@ -188,7 +264,6 @@ pub fn save_note(
     let created_at = original
         .map(|n| n.created_at.clone())
         .unwrap_or_else(|| now.clone());
-    let previous = original.cloned();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     tx.execute(
@@ -239,26 +314,11 @@ pub fn save_note(
         .map_err(|e| e.to_string())?;
     }
     tx.commit().map_err(|e| e.to_string())?;
-
-    if let Some(prev) = previous {
-        if prev.source_path != draft.source_path || prev.anchor_line != draft.anchor_line {
-            if let Some(old) = prev.source_path.as_ref() {
-                let _ = remove_marker(old, &prev.id);
-            }
-        }
-    }
-    if let Some(path) = draft.source_path.as_ref() {
-        insert_marker(path, draft.anchor_line.unwrap_or(1), &draft.id)?;
-    }
     Ok(())
 }
 
 pub fn delete_note(project_root: &Path, id: &str) -> Result<(), String> {
     let conn = open_db(project_root)?;
-    let previous = load_note(project_root, id)?;
-    if let Some(prev) = previous.as_ref().and_then(|n| n.source_path.clone()) {
-        let _ = remove_marker(&prev, id);
-    }
     conn.execute("DELETE FROM notes WHERE id = ?1", params![id])
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -342,6 +402,7 @@ pub fn publish_counts(
     }
 }
 
+#[cfg(test)]
 pub fn note_marker(path: &Path, id: &str) -> String {
     if path
         .extension()
@@ -354,39 +415,30 @@ pub fn note_marker(path: &Path, id: &str) -> String {
     }
 }
 
+#[cfg(test)]
 pub fn insert_marker(path: &Path, anchor_line: i64, id: &str) -> Result<(), String> {
-    let text = std::fs::read_to_string(path)
-        .map_err(|e| format!("Impossible de lire {} : {e}", path.display()))?;
+    let mut snapshot = TextSnapshot::read(path)?;
     let marker = note_marker(path, id);
-    if text.contains(&marker) {
+    if snapshot.lines.iter().any(|line| line.contains(&marker)) {
         return Ok(());
     }
-    let mut lines: Vec<String> = text.lines().map(|s| s.to_string()).collect();
     let pos = anchor_line.max(1) as usize;
-    let insert_at = pos.saturating_sub(1).min(lines.len());
-    lines.insert(insert_at, marker);
-    let new_text = lines.join("\n");
-    std::fs::write(path, new_text)
+    let insert_at = pos.saturating_sub(1).min(snapshot.lines.len());
+    snapshot.insert_line(insert_at, marker);
+    atomic_write(path, snapshot.to_text().as_bytes())
         .map_err(|e| format!("Impossible d'écrire {} : {e}", path.display()))
 }
 
+#[cfg(test)]
 pub fn remove_marker(path: &Path, id: &str) -> Result<(), String> {
-    let text = match std::fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(_) => return Ok(()),
+    let mut snapshot = match TextSnapshot::read(path) {
+        Ok(snapshot) => snapshot,
+        Err(e) if e.contains("No such file") || e.contains("not found") => return Ok(()),
+        Err(e) => return Err(e),
     };
     let marker = note_marker(path, id);
-    let mut changed = false;
-    let mut out = Vec::new();
-    for line in text.lines() {
-        if line.contains(&marker) {
-            changed = true;
-            continue;
-        }
-        out.push(line);
-    }
-    if changed {
-        std::fs::write(path, out.join("\n"))
+    if snapshot.remove_matching_line(&marker) {
+        atomic_write(path, snapshot.to_text().as_bytes())
             .map_err(|e| format!("Impossible d'écrire {} : {e}", path.display()))?;
     }
     Ok(())
@@ -452,14 +504,12 @@ fn parse_marker_id(line: &str) -> Option<String> {
     }
 }
 
-fn new_uuid_v4() -> String {
+fn new_uuid_v4() -> Result<String, String> {
     let mut bytes = [0u8; 16];
-    if let Ok(mut f) = File::open("/dev/urandom") {
-        let _ = f.read_exact(&mut bytes);
-    }
+    getrandom(&mut bytes).map_err(|e| format!("UUID Sticky Notes indisponible : {e}"))?;
     bytes[6] = (bytes[6] & 0x0F) | 0x40;
     bytes[8] = (bytes[8] & 0x3F) | 0x80;
-    format!(
+    Ok(format!(
         "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
         bytes[0],
         bytes[1],
@@ -477,14 +527,14 @@ fn new_uuid_v4() -> String {
         bytes[13],
         bytes[14],
         bytes[15]
-    )
+    ))
 }
 
 fn load_tags(conn: &Connection, note_id: &str) -> Result<Vec<NoteTag>, String> {
     let mut stmt = conn
         .prepare("SELECT type, valeur FROM note_tags WHERE note_id = ?1 ORDER BY rowid")
         .map_err(|e| e.to_string())?;
-    let mut rows = stmt
+    let rows = stmt
         .query_map(params![note_id], |row| {
             Ok(NoteTag {
                 type_: row.get(0)?,
@@ -493,7 +543,7 @@ fn load_tags(conn: &Connection, note_id: &str) -> Result<Vec<NoteTag>, String> {
         })
         .map_err(|e| e.to_string())?;
     let mut out = Vec::new();
-    while let Some(row) = rows.next() {
+    for row in rows {
         out.push(row.map_err(|e| e.to_string())?);
     }
     Ok(out)
@@ -503,7 +553,7 @@ fn load_links(conn: &Connection, note_id: &str) -> Result<Vec<NoteLink>, String>
     let mut stmt = conn
         .prepare("SELECT target FROM note_links WHERE note_id = ?1 ORDER BY rowid")
         .map_err(|e| e.to_string())?;
-    let mut rows = stmt
+    let rows = stmt
         .query_map(params![note_id], |row| {
             Ok(NoteLink {
                 target: row.get(0)?,
@@ -511,10 +561,54 @@ fn load_links(conn: &Connection, note_id: &str) -> Result<Vec<NoteLink>, String>
         })
         .map_err(|e| e.to_string())?;
     let mut out = Vec::new();
-    while let Some(row) = rows.next() {
+    for row in rows {
         out.push(row.map_err(|e| e.to_string())?);
     }
     Ok(out)
+}
+
+fn reconcile_link_targets(conn: &Connection, files: &[PathBuf]) -> Result<(), String> {
+    let mut by_name: HashMap<String, Vec<String>> = HashMap::new();
+    for file in files {
+        if let Some(name) = file.file_name().map(|n| n.to_string_lossy().to_string()) {
+            by_name
+                .entry(name)
+                .or_default()
+                .push(file.to_string_lossy().to_string());
+        }
+    }
+
+    let mut stmt = conn
+        .prepare("SELECT rowid, target FROM note_links")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|e| e.to_string())?;
+    for row in rows {
+        let (rowid, target) = row.map_err(|e| e.to_string())?;
+        let target_path = Path::new(&target);
+        if target_path.exists() {
+            continue;
+        }
+        let Some(name) = target_path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+        else {
+            continue;
+        };
+        if let Some(candidates) = by_name.get(&name) {
+            if candidates.len() == 1 {
+                conn.execute(
+                    "UPDATE note_links SET target = ?1 WHERE rowid = ?2",
+                    params![candidates[0], rowid],
+                )
+                .map_err(|e| e.to_string())?;
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -540,57 +634,41 @@ mod tests {
     #[test]
     fn insert_then_remove_marker_roundtrip() {
         let path = temp_file("md");
-        std::fs::write(&path, "ligne 1\nligne 2\n").unwrap();
+        atomic_write(&path, "ligne 1\nligne 2\n").unwrap();
         insert_marker(&path, 2, "abc").unwrap();
         let after_insert = std::fs::read_to_string(&path).unwrap();
         assert!(after_insert.contains("<!-- note:abc -->"));
+        assert!(after_insert.ends_with('\n'));
         remove_marker(&path, "abc").unwrap();
         let after_remove = std::fs::read_to_string(&path).unwrap();
         assert!(!after_remove.contains("note:abc"));
+        assert_eq!(after_remove, "ligne 1\nligne 2\n");
         let _ = std::fs::remove_file(&path);
     }
-}
 
-fn reconcile_link_targets(conn: &Connection, files: &[PathBuf]) -> Result<(), String> {
-    let mut by_name: HashMap<String, Vec<String>> = HashMap::new();
-    for file in files {
-        if let Some(name) = file.file_name().map(|n| n.to_string_lossy().to_string()) {
-            by_name
-                .entry(name)
-                .or_default()
-                .push(file.to_string_lossy().to_string());
-        }
+    #[test]
+    fn insert_and_remove_preserve_crlf_and_final_newline() {
+        let path = temp_file("typ");
+        atomic_write(&path, "ligne 1\r\nligne 2\r\n").unwrap();
+        insert_marker(&path, 1, "abc").unwrap();
+        let after_insert = std::fs::read_to_string(&path).unwrap();
+        assert!(after_insert.contains("/* note:abc */"));
+        assert!(after_insert.contains("\r\n"));
+        assert!(after_insert.ends_with("\r\n"));
+        remove_marker(&path, "abc").unwrap();
+        let after_remove = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(after_remove, "ligne 1\r\nligne 2\r\n");
+        let _ = std::fs::remove_file(&path);
     }
 
-    let mut stmt = conn
-        .prepare("SELECT rowid, target FROM note_links")
-        .map_err(|e| e.to_string())?;
-    let mut rows = stmt
-        .query_map([], |row| {
-            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
-        })
-        .map_err(|e| e.to_string())?;
-    while let Some(row) = rows.next() {
-        let (rowid, target) = row.map_err(|e| e.to_string())?;
-        let target_path = Path::new(&target);
-        if target_path.exists() {
-            continue;
-        }
-        let Some(name) = target_path
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-        else {
-            continue;
-        };
-        if let Some(candidates) = by_name.get(&name) {
-            if candidates.len() == 1 {
-                conn.execute(
-                    "UPDATE note_links SET target = ?1 WHERE rowid = ?2",
-                    params![candidates[0], rowid],
-                )
-                .map_err(|e| e.to_string())?;
-            }
-        }
+    #[test]
+    fn note_draft_new_generates_v4_uuid() {
+        let draft = NoteDraft::new().unwrap();
+        assert_eq!(draft.id.len(), 36);
+        assert_eq!(&draft.id[14..15], "4");
+        assert!(matches!(
+            draft.id.chars().nth(19),
+            Some('8' | '9' | 'a' | 'b')
+        ));
     }
-    Ok(())
 }

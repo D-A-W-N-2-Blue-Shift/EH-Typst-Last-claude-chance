@@ -3,7 +3,7 @@ VOENPRED — RAPPORT COMPLET DE VALIDATION RUST
 ==============================================================================
 Projet : EH-Typst-Labs-depsweep
 Chemin : /home/azot/Sharashkas-B/EH-Typst-Labs-depsweep
-Date   : 2026-07-11T15:15:11+02:00
+Date   : 2026-07-12T10:55:19+02:00
 User   : azot
 Host   : G-D-SE-CxM
 Kernel : Linux 7.1.3-200.fc44.x86_64 x86_64 GNU/Linux
@@ -30,8 +30,8 @@ STEP: check-all
 CMD : cargo check --all-targets --all-features
 ==============================================================================
    Compiling proc-macro2 v1.0.106
-   Compiling quote v1.0.46
    Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.46
    Compiling serde_core v1.0.228
     Checking cfg-if v1.0.4
     Checking once_cell v1.21.4
@@ -45,215 +45,215 @@ CMD : cargo check --all-targets --all-features
    Compiling find-msvc-tools v0.1.9
    Compiling serde v1.0.228
    Compiling autocfg v1.5.1
+   Compiling version_check v0.9.5
    Compiling zerocopy v0.8.52
    Compiling cc v1.2.65
-   Compiling version_check v0.9.5
    Compiling getrandom v0.3.4
+   Compiling ahash v0.8.12
     Checking memchr v2.8.2
     Checking tracing-core v0.1.36
     Checking libloading v0.8.9
-   Compiling ahash v0.8.12
     Checking pin-project-lite v0.2.17
    Compiling wayland-sys v0.31.11
    Compiling parking_lot_core v0.9.12
-    Checking dlib v0.5.3
    Compiling num-traits v0.2.19
-   Compiling crc32fast v1.5.0
+    Checking dlib v0.5.3
     Checking simd-adler32 v0.3.9
+   Compiling crc32fast v1.5.0
     Checking scopeguard v1.2.0
     Checking lock_api v0.4.14
     Checking adler2 v2.0.1
     Checking ttf-parser v0.25.1
-   Compiling syn v2.0.118
     Checking miniz_oxide v0.8.9
     Checking downcast-rs v1.2.1
-    Checking ab_glyph_rasterizer v0.1.10
     Checking scoped-tls v1.0.1
-    Checking profiling v1.0.18
-    Checking nohash-hasher v0.2.0
+    Checking ab_glyph_rasterizer v0.1.10
     Checking base64 v0.21.7
+    Checking profiling v1.0.18
     Checking epaint_default_fonts v0.31.1
+   Compiling syn v2.0.118
+    Checking nohash-hasher v0.2.0
+    Checking flate2 v1.1.9
+   Compiling quick-xml v0.39.4
    Compiling wayland-client v0.31.14
    Compiling zmij v1.0.21
-    Checking flate2 v1.1.9
     Checking filetime v0.2.29
    Compiling serde_json v1.0.150
-    Checking parking_lot v0.12.5
-   Compiling quick-xml v0.39.4
-    Checking itoa v1.0.18
     Checking option-ext v0.2.0
+    Checking itoa v1.0.18
     Checking dirs-sys v0.4.1
+    Checking parking_lot v0.12.5
     Checking iana-time-zone v0.1.65
     Checking dirs v5.0.1
-    Checking hashbrown v0.17.1
     Checking stable_deref_trait v1.2.1
+   Compiling wayland-backend v0.3.15
     Checking chrono v0.4.45
     Checking equivalent v1.0.2
+    Checking hashbrown v0.17.1
    Compiling vcpkg v0.2.15
    Compiling khronos_api v3.1.0
-   Compiling cfg_aliases v0.2.1
-    Checking slab v0.4.12
-    Checking percent-encoding v2.3.2
-   Compiling wayland-backend v0.3.15
    Compiling thiserror v2.0.18
+   Compiling cfg_aliases v0.2.1
+    Checking percent-encoding v2.3.2
+    Checking slab v0.4.12
+   Compiling inotify-sys v0.1.7
     Checking foldhash v0.1.5
-    Checking litemap v0.8.2
+   Compiling getrandom v0.4.3
     Checking fallible-streaming-iterator v0.1.9
    Compiling xml-rs v0.8.28
-    Checking writeable v0.6.3
-    Checking fallible-iterator v0.3.0
-   Compiling inotify-sys v0.1.7
-    Checking indexmap v2.14.0
    Compiling crossbeam-utils v0.8.21
+    Checking litemap v0.8.2
+    Checking writeable v0.6.3
+    Checking indexmap v2.14.0
+    Checking fallible-iterator v0.3.0
     Checking bitflags v2.13.0
-   Compiling getrandom v0.4.3
     Checking hashbrown v0.15.5
    Compiling wayland-scanner v0.31.10
    Compiling libsqlite3-sys v0.30.1
-    Checking as-raw-xcb-connection v1.0.1
-   Compiling icu_properties_data v2.2.0
-    Checking utf8_iter v1.0.4
     Checking owned_ttf_parser v0.25.1
-   Compiling gl_generator v0.14.0
    Compiling thiserror v1.0.69
+    Checking utf8_iter v1.0.4
     Checking ab_glyph v0.2.32
-    Checking fixedbitset v0.5.7
-   Compiling rustix v0.38.44
    Compiling icu_normalizer_data v2.2.0
     Checking x11rb-protocol v0.13.2
+   Compiling gl_generator v0.14.0
+    Checking fixedbitset v0.5.7
+   Compiling icu_properties_data v2.2.0
+   Compiling rustix v0.38.44
+    Checking as-raw-xcb-connection v1.0.1
     Checking petgraph v0.8.3
-    Checking fdeflate v0.3.7
     Checking nom v8.0.0
+    Checking fdeflate v0.3.7
    Compiling x11-dl v2.21.0
-    Checking pxfm v0.1.29
+    Checking fastrand v2.4.1
     Checking linux-raw-sys v0.4.15
+    Checking pxfm v0.1.29
+    Checking bitflags v1.3.2
+    Checking cursor-icon v1.2.0
     Checking xkeysym v0.2.1
     Checking xcursor v0.3.10
-    Checking fastrand v2.4.1
-    Checking bitflags v1.3.2
     Checking same-file v1.0.6
-    Checking cursor-icon v1.2.0
-    Checking walkdir v2.5.0
-    Checking inotify v0.9.6
     Checking crossbeam-channel v0.5.15
+    Checking walkdir v2.5.0
     Checking png v0.18.1
-    Checking memmap2 v0.9.11
-   Compiling synstructure v0.13.2
+    Checking inotify v0.9.6
     Checking mio v0.8.11
+    Checking memmap2 v0.9.11
     Checking os_pipe v1.2.3
     Checking aho-corasick v1.1.4
-    Checking unsafe-libyaml v0.2.11
-    Checking byteorder-lite v0.1.0
     Checking ryu v1.0.23
     Checking regex-syntax v0.8.11
+    Checking byteorder-lite v0.1.0
+    Checking unsafe-libyaml v0.2.11
     Checking notify v6.1.1
    Compiling smithay-client-toolkit v0.19.2
    Compiling glutin_glx_sys v0.6.1
    Compiling glutin_egl_sys v0.7.1
    Compiling winit v0.30.13
+   Compiling synstructure v0.13.2
+    Checking winnow v0.7.15
     Checking toml_write v0.1.2
+    Checking raw-window-handle v0.6.2
     Checking moxcms v0.8.1
    Compiling smithay-client-toolkit v0.20.0
-    Checking winnow v0.7.15
-    Checking raw-window-handle v0.6.2
+    Checking tree_magic_mini v3.2.2
+    Checking xkbcommon-dl v0.4.2
+    Checking form_urlencoded v1.2.2
+   Compiling glutin v0.32.3
     Checking xattr v1.6.1
     Checking polling v3.11.0
     Checking gethostname v1.1.0
     Checking tar v0.4.46
-    Checking tree_magic_mini v3.2.2
+    Checking tempfile v3.27.0
+    Checking regex-automata v0.4.14
+   Compiling memoffset v0.9.1
+    Checking smol_str v0.2.2
+    Checking str_indices v0.4.4
+    Checking dpi v0.1.2
+    Checking ropey v1.6.1
+   Compiling glutin-winit v0.5.0
+    Checking xxhash-rust v0.8.16
+   Compiling litrs v1.0.0
+    Checking lazy_static v1.5.0
+    Checking wayland-csd-frame v0.3.0
+    Checking web-time v1.1.0
+    Checking glow v0.16.0
+    Checking sharded-slab v0.1.7
+    Checking tracing-log v0.2.0
+    Checking thread_local v1.1.9
    Compiling serde_derive v1.0.228
    Compiling bytemuck_derive v1.10.2
    Compiling tracing-attributes v0.1.31
    Compiling zerofrom-derive v0.1.7
    Compiling yoke-derive v0.8.2
    Compiling zerovec-derive v0.11.3
-    Checking bytemuck v1.25.0
    Compiling displaydoc v0.2.6
-    Checking tracing v0.1.44
-    Checking zerofrom v0.1.8
-   Compiling thiserror-impl v2.0.18
-   Compiling thiserror-impl v1.0.69
-    Checking yoke v0.8.3
-    Checking wayland-csd-frame v0.3.0
     Checking wayland-protocols v0.32.13
+   Compiling thiserror-impl v2.0.18
+    Checking bytemuck v1.25.0
+   Compiling thiserror-impl v1.0.69
+    Checking zerofrom v0.1.8
     Checking wayland-cursor v0.31.14
-    Checking tempfile v3.27.0
-    Checking regex-automata v0.4.14
-    Checking calloop v0.14.4
-    Checking zerotrie v0.2.4
-    Checking xkbcommon-dl v0.4.2
-    Checking form_urlencoded v1.2.2
+    Checking yoke v0.8.3
+    Checking tracing v0.1.44
+   Compiling document-features v0.2.12
+    Checking nu-ansi-term v0.50.3
     Checking zerovec v0.11.6
-   Compiling glutin v0.32.3
-   Compiling memoffset v0.9.1
-    Checking dpi v0.1.2
+    Checking zerotrie v0.2.4
+    Checking calloop v0.14.4
+    Checking regex v1.12.4
+    Checking image v0.25.10
+    Checking matchers v0.2.0
+    Checking static_assertions v1.1.0
+    Checking home v0.5.12
+    Checking tracing-subscriber v0.3.23
     Checking calloop-wayland-source v0.4.1
-    Checking str_indices v0.4.4
-    Checking smol_str v0.2.2
-    Checking ropey v1.6.1
     Checking tinystr v0.8.3
     Checking potential_utf v0.1.5
     Checking icu_collections v2.2.0
     Checking icu_locale_core v2.2.0
-    Checking image v0.25.10
     Checking calloop v0.13.0
-   Compiling glutin-winit v0.5.0
-    Checking xxhash-rust v0.8.16
-    Checking lazy_static v1.5.0
-   Compiling litrs v1.0.0
-    Checking glow v0.16.0
-    Checking web-time v1.1.0
     Checking calloop-wayland-source v0.3.0
-    Checking sharded-slab v0.1.7
-    Checking tracing-log v0.2.0
-    Checking thread_local v1.1.9
     Checking icu_provider v2.2.0
-    Checking static_assertions v1.1.0
-    Checking nu-ansi-term v0.50.3
-    Checking home v0.5.12
-    Checking icu_properties v2.2.0
-    Checking icu_normalizer v2.2.0
-   Compiling document-features v0.2.12
     Checking emath v0.31.1
     Checking ron v0.8.1
     Checking serde_yaml v0.9.34+deprecated
     Checking serde_spanned v0.6.9
     Checking toml_datetime v0.6.11
-    Checking regex v1.12.4
-    Checking matchers v0.2.0
     Checking toml_edit v0.22.27
     Checking hashbrown v0.14.5
-    Checking tracing-subscriber v0.3.23
+    Checking icu_normalizer v2.2.0
+    Checking icu_properties v2.2.0
     Checking ecolor v0.31.1
-    Checking idna_adapter v1.2.2
     Checking epaint v0.31.1
-    Checking idna v1.1.0
     Checking hashlink v0.9.1
+    Checking rusqlite v0.32.1
+    Checking idna_adapter v1.2.2
+    Checking x11rb v0.13.2
+    Checking idna v1.1.0
+    Checking toml v0.8.23
     Checking url v2.5.8
     Checking webbrowser v1.2.1
-    Checking toml v0.8.23
-    Checking x11rb v0.13.2
     Checking egui v0.31.1
     Checking wayland-protocols-wlr v0.3.12
-    Checking wayland-protocols-plasma v0.3.12
     Checking wayland-protocols-misc v0.3.12
     Checking wayland-protocols-experimental v20250721.0.1
-    Checking rusqlite v0.32.1
+    Checking wayland-protocols-plasma v0.3.12
     Checking wl-clipboard-rs v0.9.3
     Checking arboard v3.6.1
     Checking smithay-clipboard v0.7.3
     Checking engram_core v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/core)
-    Checking egui_glow v0.31.1
     Checking egui-winit v0.31.1
+    Checking egui_glow v0.31.1
     Checking eframe v0.31.1
     Checking editor v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/editor)
     Checking file_tree v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/file_tree)
-    Checking sticky_notes v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/sticky_notes)
-    Checking claude_terminal v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/claude_terminal)
-    Checking timeline v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/timeline)
     Checking cockpit v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/cockpit)
+    Checking timeline v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/timeline)
+    Checking claude_terminal v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/claude_terminal)
+    Checking sticky_notes v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/sticky_notes)
     Checking engram_hive v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/app)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 20.21s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 21.39s
 STATUS[check-all]=0
 VERDICT[check-all]=OK
 
@@ -262,14 +262,14 @@ STEP: clippy-strict
 CMD : cargo clippy --all-targets --all-features -- -D warnings -A clippy::style -A clippy::complexity
 ==============================================================================
     Checking engram_core v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/core)
-    Checking editor v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/editor)
     Checking file_tree v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/file_tree)
+    Checking editor v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/editor)
     Checking timeline v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/timeline)
-    Checking cockpit v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/cockpit)
     Checking claude_terminal v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/claude_terminal)
     Checking sticky_notes v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/sticky_notes)
+    Checking cockpit v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/cockpit)
     Checking engram_hive v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/app)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.35s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.59s
 STATUS[clippy-strict]=0
 VERDICT[clippy-strict]=OK
 
@@ -285,203 +285,203 @@ CMD : cargo test --all-targets --all-features
    Compiling memchr v2.8.2
    Compiling serde_core v1.0.228
    Compiling libc v0.2.186
-   Compiling zerocopy v0.8.52
    Compiling bytemuck v1.25.0
+   Compiling zerocopy v0.8.52
+   Compiling libloading v0.8.9
    Compiling pin-project-lite v0.2.17
    Compiling scopeguard v1.2.0
-   Compiling libloading v0.8.9
    Compiling simd-adler32 v0.3.9
    Compiling lock_api v0.4.14
    Compiling tracing-core v0.1.36
    Compiling dlib v0.5.3
    Compiling ttf-parser v0.25.1
-   Compiling adler2 v2.0.1
    Compiling wayland-sys v0.31.11
-   Compiling miniz_oxide v0.8.9
+   Compiling adler2 v2.0.1
    Compiling num-traits v0.2.19
    Compiling crc32fast v1.5.0
    Compiling ab_glyph_rasterizer v0.1.10
+   Compiling miniz_oxide v0.8.9
    Compiling downcast-rs v1.2.1
    Compiling scoped-tls v1.0.1
-   Compiling nohash-hasher v0.2.0
    Compiling quick-xml v0.39.4
+   Compiling base64 v0.21.7
+   Compiling tracing v0.1.44
+   Compiling nohash-hasher v0.2.0
+   Compiling flate2 v1.1.9
    Compiling profiling v1.0.18
    Compiling epaint_default_fonts v0.31.1
-   Compiling tracing v0.1.44
-   Compiling base64 v0.21.7
-   Compiling flate2 v1.1.9
-   Compiling option-ext v0.2.0
    Compiling itoa v1.0.18
-   Compiling zmij v1.0.21
-   Compiling iana-time-zone v0.1.65
+   Compiling option-ext v0.2.0
    Compiling getrandom v0.3.4
    Compiling parking_lot_core v0.9.12
    Compiling filetime v0.2.29
    Compiling dirs-sys v0.4.1
-   Compiling chrono v0.4.45
+   Compiling zmij v1.0.21
+   Compiling iana-time-zone v0.1.65
+   Compiling zerofrom v0.1.8
    Compiling parking_lot v0.12.5
    Compiling dirs v5.0.1
-   Compiling zerofrom v0.1.8
+   Compiling chrono v0.4.45
    Compiling equivalent v1.0.2
-   Compiling hashbrown v0.17.1
    Compiling stable_deref_trait v1.2.1
-   Compiling percent-encoding v2.3.2
-   Compiling slab v0.4.12
+   Compiling hashbrown v0.17.1
    Compiling yoke v0.8.3
+   Compiling slab v0.4.12
+   Compiling percent-encoding v2.3.2
    Compiling libsqlite3-sys v0.30.1
-   Compiling litemap v0.8.2
-   Compiling fallible-iterator v0.3.0
    Compiling wayland-scanner v0.31.10
    Compiling zerovec v0.11.6
-   Compiling writeable v0.6.3
-   Compiling foldhash v0.1.5
+   Compiling litemap v0.8.2
    Compiling fallible-streaming-iterator v0.1.9
+   Compiling fallible-iterator v0.3.0
+   Compiling foldhash v0.1.5
+   Compiling writeable v0.6.3
+   Compiling thiserror v2.0.18
    Compiling zerotrie v0.2.4
    Compiling hashbrown v0.15.5
-   Compiling thiserror v2.0.18
    Compiling getrandom v0.4.3
-   Compiling x11rb-protocol v0.13.2
    Compiling utf8_iter v1.0.4
-   Compiling indexmap v2.14.0
    Compiling as-raw-xcb-connection v1.0.1
+   Compiling x11rb-protocol v0.13.2
+   Compiling indexmap v2.14.0
    Compiling fixedbitset v0.5.7
    Compiling fastrand v2.4.1
-   Compiling crossbeam-utils v0.8.21
    Compiling tinystr v0.8.3
    Compiling potential_utf v0.1.5
+   Compiling inotify-sys v0.1.7
    Compiling icu_locale_core v2.2.0
    Compiling icu_collections v2.2.0
+   Compiling crossbeam-utils v0.8.21
    Compiling owned_ttf_parser v0.25.1
-   Compiling inotify-sys v0.1.7
-   Compiling ab_glyph v0.2.32
-   Compiling nom v8.0.0
-   Compiling fdeflate v0.3.7
    Compiling bitflags v2.13.0
    Compiling serde v1.0.228
+   Compiling ab_glyph v0.2.32
    Compiling rustix v1.1.4
    Compiling serde_json v1.0.150
    Compiling petgraph v0.8.3
-   Compiling xcursor v0.3.10
-   Compiling same-file v1.0.6
-   Compiling cursor-icon v1.2.0
-   Compiling icu_provider v2.2.0
-   Compiling linux-raw-sys v0.4.15
+   Compiling nom v8.0.0
    Compiling emath v0.31.1
    Compiling ron v0.8.1
-   Compiling bitflags v1.3.2
-   Compiling xkeysym v0.2.1
+   Compiling icu_provider v2.2.0
+   Compiling fdeflate v0.3.7
    Compiling pxfm v0.1.29
+   Compiling same-file v1.0.6
+   Compiling ahash v0.8.12
+   Compiling ecolor v0.31.1
+   Compiling linux-raw-sys v0.4.15
+   Compiling bitflags v1.3.2
+   Compiling cursor-icon v1.2.0
+   Compiling xkeysym v0.2.1
+   Compiling hashbrown v0.14.5
+   Compiling xcursor v0.3.10
+   Compiling epaint v0.31.1
    Compiling rustix v0.38.44
    Compiling inotify v0.9.6
-   Compiling ecolor v0.31.1
-   Compiling ahash v0.8.12
    Compiling walkdir v2.5.0
-   Compiling epaint v0.31.1
-   Compiling hashbrown v0.14.5
-   Compiling thiserror v1.0.69
-   Compiling png v0.18.1
-   Compiling crossbeam-channel v0.5.15
-   Compiling icu_normalizer_data v2.2.0
-   Compiling icu_properties_data v2.2.0
-   Compiling memmap2 v0.9.11
-   Compiling os_pipe v1.2.3
-   Compiling mio v0.8.11
-   Compiling aho-corasick v1.1.4
-   Compiling regex-syntax v0.8.11
-   Compiling byteorder-lite v0.1.0
    Compiling hashlink v0.9.1
-   Compiling unsafe-libyaml v0.2.11
-   Compiling ryu v1.0.23
+   Compiling png v0.18.1
+   Compiling thiserror v1.0.69
+   Compiling crossbeam-channel v0.5.15
+   Compiling icu_properties_data v2.2.0
+   Compiling icu_normalizer_data v2.2.0
+   Compiling os_pipe v1.2.3
    Compiling rusqlite v0.32.1
+   Compiling mio v0.8.11
+   Compiling memmap2 v0.9.11
+   Compiling aho-corasick v1.1.4
+   Compiling byteorder-lite v0.1.0
+   Compiling regex-syntax v0.8.11
+   Compiling ryu v1.0.23
+   Compiling unsafe-libyaml v0.2.11
    Compiling notify v6.1.1
+   Compiling moxcms v0.8.1
    Compiling tree_magic_mini v3.2.2
    Compiling serde_yaml v0.9.34+deprecated
-   Compiling moxcms v0.8.1
-   Compiling egui v0.31.1
+   Compiling icu_properties v2.2.0
    Compiling wayland-backend v0.3.15
+   Compiling egui v0.31.1
    Compiling xattr v1.6.1
    Compiling tar v0.4.46
    Compiling polling v3.11.0
-   Compiling wayland-client v0.31.14
    Compiling gethostname v1.1.0
+   Compiling wayland-client v0.31.14
    Compiling tempfile v3.27.0
    Compiling wayland-csd-frame v0.3.0
    Compiling calloop v0.13.0
    Compiling regex-automata v0.4.14
-   Compiling icu_properties v2.2.0
    Compiling icu_normalizer v2.2.0
    Compiling x11-dl v2.21.0
    Compiling calloop v0.14.4
+   Compiling idna_adapter v1.2.2
    Compiling serde_spanned v0.6.9
    Compiling toml_datetime v0.6.11
-   Compiling toml_write v0.1.2
-   Compiling winnow v0.7.15
    Compiling raw-window-handle v0.6.2
+   Compiling winnow v0.7.15
+   Compiling toml_write v0.1.2
+   Compiling idna v1.1.0
    Compiling xkbcommon-dl v0.4.2
+   Compiling form_urlencoded v1.2.2
+   Compiling str_indices v0.4.4
+   Compiling smol_str v0.2.2
+   Compiling dpi v0.1.2
+   Compiling url v2.5.8
    Compiling wayland-protocols v0.32.13
    Compiling wayland-cursor v0.31.14
+   Compiling image v0.25.10
    Compiling calloop-wayland-source v0.3.0
    Compiling calloop-wayland-source v0.4.1
-   Compiling form_urlencoded v1.2.2
-   Compiling smol_str v0.2.2
-   Compiling idna_adapter v1.2.2
-   Compiling idna v1.1.0
-   Compiling dpi v0.1.2
-   Compiling image v0.25.10
-   Compiling str_indices v0.4.4
-   Compiling glutin_egl_sys v0.7.1
    Compiling ropey v1.6.1
-   Compiling url v2.5.8
+   Compiling glutin_egl_sys v0.7.1
    Compiling xxhash-rust v0.8.16
    Compiling memoffset v0.9.1
-   Compiling lazy_static v1.5.0
-   Compiling web-time v1.1.0
    Compiling webbrowser v1.2.1
-   Compiling toml_edit v0.22.27
+   Compiling web-time v1.1.0
+   Compiling lazy_static v1.5.0
    Compiling glow v0.16.0
    Compiling sharded-slab v0.1.7
-   Compiling tracing-log v0.2.0
+   Compiling toml_edit v0.22.27
    Compiling regex v1.12.4
    Compiling matchers v0.2.0
+   Compiling tracing-log v0.2.0
    Compiling thread_local v1.1.9
+   Compiling nu-ansi-term v0.50.3
    Compiling static_assertions v1.1.0
    Compiling home v0.5.12
-   Compiling nu-ansi-term v0.50.3
-   Compiling glutin_glx_sys v0.6.1
    Compiling tracing-subscriber v0.3.23
+   Compiling glutin_glx_sys v0.6.1
    Compiling glutin v0.32.3
    Compiling x11rb v0.13.2
    Compiling toml v0.8.23
    Compiling engram_core v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/core)
    Compiling egui_glow v0.31.1
    Compiling file_tree v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/file_tree)
+   Compiling sticky_notes v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/sticky_notes)
+   Compiling cockpit v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/cockpit)
    Compiling timeline v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/timeline)
+   Compiling claude_terminal v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/claude_terminal)
    Compiling wayland-protocols-wlr v0.3.12
-   Compiling wayland-protocols-plasma v0.3.12
    Compiling wayland-protocols-experimental v20250721.0.1
    Compiling wayland-protocols-misc v0.3.12
-   Compiling cockpit v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/cockpit)
-   Compiling claude_terminal v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/claude_terminal)
+   Compiling wayland-protocols-plasma v0.3.12
    Compiling wl-clipboard-rs v0.9.3
    Compiling smithay-client-toolkit v0.19.2
    Compiling smithay-client-toolkit v0.20.0
    Compiling arboard v3.6.1
-   Compiling sticky_notes v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/sticky_notes)
-   Compiling winit v0.30.13
    Compiling editor v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/editor)
+   Compiling winit v0.30.13
    Compiling smithay-clipboard v0.7.3
-   Compiling egui-winit v0.31.1
    Compiling glutin-winit v0.5.0
+   Compiling egui-winit v0.31.1
    Compiling eframe v0.31.1
    Compiling engram_hive v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/app)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 28.92s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 31.84s
      Running unittests src/lib.rs (target/debug/deps/claude_terminal-34db71cee83da19e)
 
 running 6 tests
 test config::tests::defaults_include_provider_command_and_args ... ok
+test process::tests::strip_ansi_removes_sequences ... ok
 test process::tests::split_args_handles_quotes ... ok
 test process::tests::parse_simple_json_response ... ok
-test process::tests::strip_ansi_removes_sequences ... ok
 test config::tests::roundtrip_keeps_multicharacter_command ... ok
 test token_log::tests::log_and_read_cumulative ... ok
 
@@ -497,60 +497,60 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 running 59 tests
 test buffer::tests::redo_cleared_by_new_edit ... ok
-test buffer::tests::delete_then_undo ... ok
-test buffer::tests::consecutive_typing_coalesces ... ok
-test config::tests::broken_color_falls_back_with_glados ... ok
-test focus_mode::tests::toggle_roundtrip ... ok
-test focus_mode::tests::typewriter_keeps_line_at_position ... ok
 test buffer::tests::typing_plus_typography_is_one_undo ... ok
-test buffer::tests::undo_redo_restores_text_and_cursor ... ok
 test highlight::tests::override_splits_spans ... ok
-test buffer::tests::symlink_same_inode_same_buffer ... ok
+test focus_mode::tests::typewriter_keeps_line_at_position ... ok
+test focus_mode::tests::toggle_roundtrip ... ok
+test buffer::tests::consecutive_typing_coalesces ... ok
 test highlight::tests::tags_not_headings ... ok
+test config::tests::broken_color_falls_back_with_glados ... ok
+test input::tests::list_markers ... ok
+test buffer::tests::delete_then_undo ... ok
 test input::tests::chord_parsing ... ok
 test highlight::tests::frontmatter_detection ... ok
-test input::tests::list_markers ... ok
+test buffer::tests::symlink_same_inode_same_buffer ... ok
+test buffer::tests::undo_redo_restores_text_and_cursor ... ok
 test snippets::tests::date_placeholder_renders ... ok
-test snippets::tests::waits_when_prefix_of_longer_trigger ... ok
 test snippets::tests::expands_exact_non_ambiguous ... ok
+test snippets::tests::waits_when_prefix_of_longer_trigger ... ok
+test snippets::tests::default_snippets_parse ... ok
 test stats::tests::progress_bar_shape ... ok
+test config::tests::shipped_config_examples_parse ... ok
+test table_dialog::tests::cursor_lands_in_first_body_cell ... ok
 test stats::tests::meta_tolerates_broken_yaml ... ok
-test stats::tests::debounced_count_arrives ... ok
 test stats::tests::counts_exclude_frontmatter_and_comments ... ok
 test table_dialog::tests::clamps_out_of_range ... ok
-test table_dialog::tests::cursor_lands_in_first_body_cell ... ok
-test config::tests::shipped_config_examples_parse ... ok
 test table_dialog::tests::empty_header_falls_back_to_col_n ... ok
-test snippets::tests::default_snippets_parse ... ok
 test table_dialog::tests::generates_3x3_table ... ok
+test table_edit_assist::tests::is_separator_row_works ... ok
 test table_edit_assist::tests::detects_simple_table ... ok
 test table_edit_assist::tests::enter_in_last_cell_of_last_row_creates_new_row ... ok
-test table_edit_assist::tests::is_separator_row_works ... ok
 test table_edit_assist::tests::enter_outside_last_cell_returns_none ... ok
-test table_edit_assist::tests::no_detection_outside_table ... ok
 test table_edit_assist::tests::detect_all_tables_finds_blocks ... ok
+test table_edit_assist::tests::no_detection_outside_table ... ok
 test table_edit_assist::tests::shift_tab_jumps_to_previous_cell ... ok
-test table_edit_assist::tests::tab_jumps_to_next_cell ... ok
 test table_edit_assist::tests::parse_and_serialize_roundtrip ... ok
+test table_edit_assist::tests::tab_jumps_to_next_cell ... ok
 test toc::tests::h6_and_non_headings_ignored ... ok
 test table_edit_assist::tests::tab_in_last_cell_of_last_row_creates_new_row ... ok
-test toc::tests::ignores_frontmatter_and_code_fences ... ok
 test toc::tests::parses_headings_levels_and_lines ... ok
+test toc::tests::ignores_frontmatter_and_code_fences ... ok
 test typography::tests::curly_apostrophe ... ok
 test typography::tests::ellipsis_and_undo_in_one ... ok
 test typography::tests::english_quotes ... ok
-test typography::tests::french_quotes_open_close ... ok
 test typography::tests::emdash_mid_sentence_not_line_start ... ok
-test typography::tests::nbsp_before_double_punctuation ... ok
-test viewport::tests::edit_invalidates_downstream_only ... ok
-test viewport::tests::word_bounds_french ... ok
-test wikilinks::tests::fuzzy_matches_case_insensitive ... ok
-test wikilinks::tests::ignores_malformed ... ok
+test typography::tests::french_quotes_open_close ... ok
 test viewport::tests::prefix_sums_consistent ... ok
+test typography::tests::nbsp_before_double_punctuation ... ok
+test viewport::tests::word_bounds_french ... ok
+test viewport::tests::edit_invalidates_downstream_only ... ok
+test wikilinks::tests::fuzzy_matches_case_insensitive ... ok
 test wikilinks::tests::finds_links_in_body_and_yaml ... ok
+test wikilinks::tests::ignores_malformed ... ok
 test wikilinks::tests::query_detection ... ok
 test highlight::tests::parse_state_cache_covers_long_frontmatter ... ok
 test search::tests::invalid_regex_reports_glados ... ok
+test stats::tests::debounced_count_arrives ... ok
 test search::tests::replace_all_is_one_undo ... ok
 test search::tests::finds_case_insensitive_by_default ... ok
 test search::tests::unicode_offsets_are_chars_not_bytes ... ok
@@ -573,15 +573,15 @@ test backup::tests::default_config_matches_brief ... ok
 test config::tests::default_modules_section_is_spine_only ... ok
 test backup::tests::no_active_project_is_an_error ... ok
 test config::tests::parses_on_disk_struct_name ... ok
-test licorne::tests::broken_syntax_falls_back_with_glados ... ok
-test config::tests::unknown_modules_are_filtered_out ... ok
 test config::tests::load_from_licorne_keeps_spine ... ok
+test config::tests::unknown_modules_are_filtered_out ... ok
+test licorne::tests::broken_syntax_falls_back_with_glados ... ok
 test theme::tests::broken_color_falls_back_and_reports ... ok
 test licorne::tests::named_inner_struct_and_missing_fields ... ok
-test licorne::tests::unknown_module_section_is_preserved ... ok
 test theme::tests::defaults_resolve_to_neon_palette ... ok
-test licorne::tests::absent_file_gives_empty_no_error ... ok
+test licorne::tests::unknown_module_section_is_preserved ... ok
 test backup::tests::backup_creates_archive_of_active_project ... ok
+test licorne::tests::absent_file_gives_empty_no_error ... ok
 test theme::tests::shipped_expert_model_parses ... ok
 
 test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
@@ -607,44 +607,44 @@ test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 running 26 tests
 test folder_picker::tests::tilde_expansion ... ok
 test folder_picker::tests::first_existing_ancestor_walks_up ... ok
-test indexer::tests::date_marker_rejette_invalide ... ok
 test indexer::tests::date_marker_extrait_premier_match_valide ... ok
-test indexer::tests::sans_frontmatter_tout_est_corps ... ok
+test indexer::tests::date_marker_rejette_invalide ... ok
 test folder_picker::tests::lists_and_sorts_subdirs_skipping_hidden ... ok
-test indexer::tests::tags_inline_sans_titres_typst ... ok
 test indexer::tests::frontmatter_separe_du_corps ... ok
+test indexer::tests::sans_frontmatter_tout_est_corps ... ok
+test indexer::tests::tags_inline_sans_titres_typst ... ok
 test indexer::tests::wikilinks_extraits_avec_alias ... ok
-test indexer::tests::statuts_reconnus ... ok
 test stats::tests::abreviation_des_grands_nombres ... ok
-test stats::tests::liens_reconnu_comme_dossier_session ... ok
+test indexer::tests::statuts_reconnus ... ok
 test stats::tests::sections_par_prefixe ... ok
-test stats::tests::separateur_de_milliers_sans_abreviation ... ok
+test stats::tests::liens_reconnu_comme_dossier_session ... ok
 test temporal::tests::affichage_conserve_la_precision ... ok
-test temporal::tests::date_precision_variable ... ok
-test temporal::tests::dates_invalides_rejetees ... ok
 test temporal::tests::chronologie_perso_extraite ... ok
 test temporal::tests::ligne_chrono_sans_separateur_ignoree ... ok
-test temporal::tests::tri_lexicographique_est_chronologique ... ok
+test temporal::tests::dates_invalides_rejetees ... ok
+test stats::tests::separateur_de_milliers_sans_abreviation ... ok
 test temporal::tests::scene_extraite_du_yaml ... ok
-test temporal::tests::yaml_existant_sans_champs_temporels_ne_casse_pas ... ok
-test temporal::tests::yaml_vide_ou_invalide_degrade_sans_paniquer ... ok
+test temporal::tests::tri_lexicographique_est_chronologique ... ok
 test config::tests::shipped_file_tree_section_parses ... ok
+test temporal::tests::date_precision_variable ... ok
+test temporal::tests::yaml_existant_sans_champs_temporels_ne_casse_pas ... ok
 test project::tests::scaffold_necrase_pas_un_fichier_existant ... ok
 test project::tests::scaffold_cree_la_structure_wingate ... ok
+test temporal::tests::yaml_vide_ou_invalide_degrade_sans_paniquer ... ok
 
 test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
      Running tests/focus_input.rs (target/debug/deps/focus_input-87bd680a77265d90)
 
 running 6 tests
-test saisie_multi_caracteres_focus_chaque_frame ... ok
 test saisie_multi_caracteres_focus_une_fois ... ok
 test dialogue_avec_viewport_enfant_qui_reclame_focus ... ok
 test dialogue_window_saisie ... ok
-test dialogue_avec_viewport_enfant_focus_une_fois_ok ... ok
+test saisie_multi_caracteres_focus_chaque_frame ... ok
 test dialogue_avec_viewport_enfant_passif ... ok
+test dialogue_avec_viewport_enfant_focus_une_fois_ok ... ok
 
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
      Running unittests src/lib.rs (target/debug/deps/sticky_notes-2273d87e4eec9e23)
 
@@ -670,8 +670,8 @@ CMD : cargo doc --all-features --no-deps
 ==============================================================================
  Documenting editor v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/editor)
  Documenting file_tree v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/file_tree)
- Documenting claude_terminal v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/claude_terminal)
  Documenting sticky_notes v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/sticky_notes)
+ Documenting claude_terminal v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/claude_terminal)
  Documenting timeline v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/timeline)
  Documenting cockpit v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/modules/cockpit)
  Documenting engram_core v0.1.0 (/home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/core)
@@ -690,7 +690,6 @@ warning: unclosed HTML tag `nom`
 40 |     /// [[lien rouge]] → création dans <projet>/orphelins/<nom>.typ.
    |                                                           ^^^^^
 
-warning: `engram_core` (lib doc) generated 2 warnings
 warning: unresolved link to `wikilink`
    --> modules/editor/src/viewport.rs:221:23
     |
@@ -722,6 +721,8 @@ warning: unclosed HTML tag `nom`
 73 |     /// Chemin de création pour un lien orphelin : <projet>/orphelins/<nom>.typ.
    |                                                                       ^^^^^
 
+warning: `engram_core` (lib doc) generated 2 warnings
+warning: `editor` (lib doc) generated 4 warnings
 warning: unresolved link to `dependencies`
    --> app/src/module_cli.rs:226:53
     |
@@ -732,16 +733,15 @@ warning: unresolved link to `dependencies`
     = note: `#[warn(rustdoc::broken_intra_doc_links)]` on by default
 
 warning: unclosed HTML tag `module`
-   --> app/src/main.rs:652:45
+   --> app/src/main.rs:625:45
     |
-652 | /// ~/.local/share/engram_hive/logs/modules/<module>.log
+625 | /// ~/.local/share/engram_hive/logs/modules/<module>.log
     |                                             ^^^^^^^^
     |
     = note: `#[warn(rustdoc::invalid_html_tags)]` on by default
 
-warning: `editor` (lib doc) generated 4 warnings
 warning: `engram_hive` (bin "engram_hive" doc) generated 2 warnings
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.90s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.01s
    Generated /home/azot/Sharashkas-B/EH-Typst-Labs-depsweep/target/doc/claude_terminal/index.html and 7 other files
 STATUS[doc]=0
 VERDICT[doc]=OK
@@ -751,7 +751,7 @@ STEP: audit
 CMD : cargo audit
 ==============================================================================
     Fetching advisory database from `https://github.com/RustSec/advisory-db.git`
-      Loaded 1159 security advisories (from /home/azot/.cargo/advisory-db)
+      Loaded 1160 security advisories (from /home/azot/.cargo/advisory-db)
     Updating crates.io index
     Scanning Cargo.lock for vulnerabilities (418 crate dependencies)
 Crate:     quick-xml

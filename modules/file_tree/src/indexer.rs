@@ -156,13 +156,7 @@ pub fn search_corpus(root: &Path, query: &str, limit: usize) -> Result<Vec<Corpu
             root.display()
         ));
     }
-    let conn = rusqlite::Connection::open_with_flags(
-        db_path,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    )
-    .map_err(|e| e.to_string())?;
-    conn.pragma_update(None, "query_only", true)
-        .map_err(|e| e.to_string())?;
+    let conn = open_ro_db(&db_path)?;
     let query = normalize_fts_query(query);
     if query.is_empty() {
         return Ok(Vec::new());
@@ -236,7 +230,20 @@ fn run(
     // supprimé → message visible de reconstruction).
     let t0 = Instant::now();
     let mut mem: HashMap<PathBuf, FileStats> = HashMap::new();
-    let count = full_scan(&root, &cfg, &mut conn, &mut mem);
+    let count = match full_scan(&root, &cfg, &mut conn, &mut mem) {
+        Ok(count) => count,
+        Err(e) => {
+            let msg = format!("Indexation initiale incomplète : {e}");
+            tracing::error!(target: "file_tree", "{msg}");
+            mem.clear();
+            *shared
+                .status_msg
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(msg);
+            publish(&shared, &mem, &egui_ctx);
+            return;
+        }
+    };
     let elapsed = t0.elapsed().as_millis();
     let msg = if db_existed {
         format!("Index à jour : {count} fichiers en {elapsed} ms.")
@@ -271,12 +278,23 @@ fn run(
             }
             Ok(Msg::Cmd(IndexerCmd::FullRescan)) => {
                 mem.clear();
-                let n = full_scan(&root, &cfg, &mut conn, &mut mem);
-                *shared
-                    .status_msg
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner) =
-                    Some(format!("Re-scan complet : {n} fichiers."));
+                match full_scan(&root, &cfg, &mut conn, &mut mem) {
+                    Ok(n) => {
+                        *shared
+                            .status_msg
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                            Some(format!("Re-scan complet : {n} fichiers."));
+                    }
+                    Err(e) => {
+                        tracing::error!(target: "file_tree", "Re-scan complet impossible : {e}");
+                        *shared
+                            .status_msg
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                            Some(format!("Re-scan complet impossible : {e}"));
+                    }
+                }
                 publish(&shared, &mem, &egui_ctx);
             }
             Ok(Msg::Cmd(IndexerCmd::Reindex(p))) => {
@@ -309,14 +327,28 @@ fn run(
             }
             Err(RecvTimeoutError::Timeout) => {
                 if deadline.map(|d| Instant::now() >= d).unwrap_or(false) {
-                    process_pending(
+                    if let Err(e) = process_pending(
                         &root,
                         &cfg,
                         &mut conn,
                         &mut mem,
                         std::mem::take(&mut pending_changed),
                         std::mem::take(&mut pending_removed),
-                    );
+                    ) {
+                        tracing::error!(target: "file_tree", "Traitement incrémental SQLite : {e}");
+                        mem.clear();
+                        if let Err(rescan_err) = full_scan(&root, &cfg, &mut conn, &mut mem) {
+                            tracing::error!(
+                                target: "file_tree",
+                                "Rescan de secours impossible : {rescan_err}"
+                            );
+                        }
+                        *shared
+                            .status_msg
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                            Some(format!("Index SQLite resynchronisé après erreur : {e}"));
+                    }
                     deadline = None;
                     publish(&shared, &mem, &egui_ctx);
                 }
@@ -366,6 +398,10 @@ fn open_db(path: &Path) -> Result<rusqlite::Connection, String> {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    conn.busy_timeout(Duration::from_millis(2000))
+        .map_err(|e| e.to_string())?;
+    conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;")
+        .map_err(|e| e.to_string())?;
     conn.execute_batch(SCHEMA).map_err(|e| e.to_string())?;
     // Migration douce : DB pré-existante sans la colonne date_marker (§5
     // Timeline). On absorbe "duplicate column" pour rester idempotent ;
@@ -379,6 +415,21 @@ fn open_db(path: &Path) -> Result<rusqlite::Connection, String> {
             return Err(format!("Migration date_marker : {msg}"));
         }
     }
+    Ok(conn)
+}
+
+fn open_ro_db(path: &Path) -> Result<rusqlite::Connection, String> {
+    let conn = rusqlite::Connection::open_with_flags(
+        path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|e| e.to_string())?;
+    conn.busy_timeout(Duration::from_millis(2000))
+        .map_err(|e| e.to_string())?;
+    conn.pragma_update(None, "query_only", true)
+        .map_err(|e| e.to_string())?;
+    conn.pragma_update(None, "foreign_keys", true)
+        .map_err(|e| e.to_string())?;
     Ok(conn)
 }
 
@@ -470,29 +521,43 @@ fn full_scan(
     cfg: &Config,
     conn: &mut rusqlite::Connection,
     mem: &mut HashMap<PathBuf, FileStats>,
-) -> usize {
-    let _ = conn.execute_batch(
+) -> Result<usize, String> {
+    conn.execute_batch(
         "DELETE FROM files; DELETE FROM wikilinks; DELETE FROM tags; DELETE FROM fts_content; \
          DELETE FROM timeline_links; DELETE FROM timeline_events;",
-    );
+    )
+    .map_err(|e| e.to_string())?;
     let mut paths = Vec::new();
     collect_typst(root, cfg, &mut paths);
     let tx = match conn.transaction() {
         Ok(t) => t,
         Err(e) => {
             tracing::error!(target: "file_tree", "Transaction SQLite impossible : {e}");
-            return 0;
+            return Err(e.to_string());
         }
     };
     let mut n = 0;
+    let mut errors = Vec::new();
     for p in &paths {
-        if index_one(&tx, root, p, mem).is_ok() {
-            n += 1;
+        match index_one(&tx, root, p, mem) {
+            Ok(()) => n += 1,
+            Err(e) => {
+                tracing::warn!(target: "file_tree", "Indexation de {} ratée : {e}", p.display());
+                errors.push(format!("{}: {e}", p.display()));
+            }
         }
     }
-    let _ = refresh_orphans(&tx);
-    let _ = tx.commit();
-    n
+    refresh_orphans(&tx)?;
+    tx.commit().map_err(|e| e.to_string())?;
+    if !errors.is_empty() {
+        tracing::warn!(
+            target: "file_tree",
+            "Indexation incomplète : {} erreur(s) sur {} fichier(s).",
+            errors.len(),
+            n
+        );
+    }
+    Ok(n)
 }
 
 fn collect_typst(dir: &Path, cfg: &Config, out: &mut Vec<PathBuf>) {
@@ -692,34 +757,52 @@ fn index_one(
     Ok(())
 }
 
-fn remove_one(conn: &rusqlite::Connection, path: &Path, mem: &mut HashMap<PathBuf, FileStats>) {
+fn remove_one(
+    root: &Path,
+    conn: &rusqlite::Connection,
+    path: &Path,
+    mem: &mut HashMap<PathBuf, FileStats>,
+) -> Result<(), String> {
     // Le fichier n'existe plus : on ne peut pas le canonicaliser. On retire
     // toute entrée mémoire/DB dont le chemin correspond (suffixe identique).
+    let mut variants = Vec::new();
     let key_exact = path.to_string_lossy().to_string();
+    variants.push(key_exact.clone());
+    if let Ok(canonical) = std::fs::canonicalize(path) {
+        variants.push(canonical.to_string_lossy().to_string());
+    }
+    if let Ok(rel) = path.strip_prefix(root) {
+        variants.push(root.join(rel).to_string_lossy().to_string());
+    }
+    variants.sort();
+    variants.dedup();
     let keys: Vec<PathBuf> = mem
         .keys()
-        .filter(|k| k.as_path() == path || k.to_string_lossy() == key_exact)
+        .filter(|k| {
+            let raw = k.to_string_lossy().to_string();
+            variants.iter().any(|candidate| candidate == &raw)
+        })
         .cloned()
         .collect();
     for k in keys {
         mem.remove(&k);
     }
-    for table in ["wikilinks", "tags"] {
+    for table in ["wikilinks", "tags", "files", "fts_content"] {
         let col = if table == "wikilinks" {
             "source_path"
         } else {
-            "file_path"
+            match table {
+                "tags" => "file_path",
+                "files" | "fts_content" => "canonical_path",
+                _ => "source_path",
+            }
         };
-        let _ = conn.execute(
-            &format!("DELETE FROM {table} WHERE {col} = ?1"),
-            [&key_exact],
-        );
+        for key in &variants {
+            conn.execute(&format!("DELETE FROM {table} WHERE {col} = ?1"), [key])
+                .map_err(|e| e.to_string())?;
+        }
     }
-    let _ = conn.execute("DELETE FROM files WHERE canonical_path = ?1", [&key_exact]);
-    let _ = conn.execute(
-        "DELETE FROM fts_content WHERE canonical_path = ?1",
-        [&key_exact],
-    );
+    Ok(())
 }
 
 /// Reclasse tous les wikilinks orphelins : un lien est orphelin si aucun
@@ -742,29 +825,35 @@ fn process_pending(
     mem: &mut HashMap<PathBuf, FileStats>,
     changed: HashSet<PathBuf>,
     removed: HashSet<PathBuf>,
-) {
+) -> Result<(), String> {
     let tx = match conn.transaction() {
         Ok(t) => t,
         Err(e) => {
             tracing::error!(target: "file_tree", "Transaction SQLite impossible : {e}");
-            return;
+            return Err(e.to_string());
         }
     };
     for p in removed {
-        remove_one(&tx, &p, mem);
+        remove_one(root, &tx, &p, mem)?;
     }
+    let mut errors = Vec::new();
     for p in changed {
         if p.exists() {
             if let Err(e) = index_one(&tx, root, &p, mem) {
                 tracing::warn!(target: "file_tree", "Indexation de {} ratée : {e}", p.display());
+                errors.push(format!("{}: {e}", p.display()));
             }
         } else {
             // L'événement Modify d'un fichier déjà reparti (éditeurs à swap).
-            remove_one(&tx, &p, mem);
+            remove_one(root, &tx, &p, mem)?;
         }
     }
-    let _ = refresh_orphans(&tx);
-    let _ = tx.commit();
+    refresh_orphans(&tx)?;
+    tx.commit().map_err(|e| e.to_string())?;
+    if !errors.is_empty() {
+        return Err(errors.join(" | "));
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------

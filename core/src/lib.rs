@@ -14,6 +14,7 @@
 
 pub mod backup;
 mod config;
+pub mod fs;
 pub mod ipc;
 pub mod licorne;
 mod module_api;
@@ -21,10 +22,11 @@ pub mod theme;
 
 pub use backup::{BackupConfig, BackupHandle};
 pub use config::{ModuleRegistry, ModulesConfig};
+pub use fs::atomic_write;
 pub use ipc::{IpcCommand, IpcServer};
 pub use licorne::Licorne;
 pub use module_api::{
     notes_module_name, notes_open_command, notes_toggle_command, CoreContext, CoreEvent, Module,
-    ModuleResponse, RenderMode,
+    ModuleResponse, RenderMode, StickyNoteMarkerRef,
 };
 pub use theme::Palette;

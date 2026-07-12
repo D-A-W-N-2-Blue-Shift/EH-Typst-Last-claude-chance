@@ -61,6 +61,12 @@ Ce que tu peux faire:
 - supprimer une note.
 
 Les notes sont stockées dans la base SQLite du projet.
+Le module est chargé par défaut dans `modules.enabled` de `engram.ron`; si tu
+le retires de cette liste, l'application le considérera comme désactivé.
+Quand le fichier source est déjà ouvert dans l'éditeur, le marqueur est appliqué
+directement au buffer partagé avec une seule transaction undo.
+Quand le fichier source n'est pas ouvert, le marqueur est écrit atomiquement.
+Dans les deux cas, les fins de ligne du fichier source sont préservées.
 
 ## 7. COH2B
 
@@ -110,6 +116,8 @@ Tu peux l'ouvrir depuis la palette si tu veux:
 - consulter les réglages;
 - vérifier la config;
 - recharger certaines valeurs.
+Le heartbeat de repaint n’est maintenu que lorsque la fenêtre principale est
+minimisée et qu’au moins un viewport enfant est actif.
 
 ## 11. Raccourcis utiles
 

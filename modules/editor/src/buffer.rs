@@ -19,6 +19,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::time::{Duration, Instant};
 
+use engram_core::atomic_write;
 use ropey::Rope;
 
 /// Une opération élémentaire, en indices de CARACTÈRES (pas d'octets).
@@ -313,7 +314,7 @@ impl Buffer {
         self.commit_txn();
         self.self_write_until = Some(Instant::now() + silence);
         let text = self.rope.to_string(); // O(N) assumé : action explicite, pas per-frame.
-        std::fs::write(&self.path, &text).map_err(|e| {
+        atomic_write(&self.path, text.as_bytes()).map_err(|e| {
             format!(
                 "Sauvegarde de {} ratée : {e}. Ton texte vit toujours en mémoire, \
                  mais le disque fait la sourde oreille.",

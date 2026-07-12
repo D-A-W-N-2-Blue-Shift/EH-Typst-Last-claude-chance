@@ -8,7 +8,7 @@
 
     "deep": (
         db_v2: false,
-        sticky_notes: false,
+        sticky_notes: true,
         timeline_v2: false,
         coh2b: false,
     ),
@@ -18,6 +18,7 @@
             "file_tree",
             "editor",
             "cockpit",
+            "sticky_notes",
         ],
     ),
 

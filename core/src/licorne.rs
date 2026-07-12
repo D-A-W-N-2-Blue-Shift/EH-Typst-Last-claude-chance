@@ -32,6 +32,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use crate::atomic_write;
 use serde::de::DeserializeOwned;
 
 /// Nom du fichier unifié cible dans ~/.config/engram_hive/.
@@ -53,7 +54,7 @@ impl Licorne {
         let mut errors = Vec::new();
         let path = config_dir.join(ENGRAM_FILE);
         if !path.exists() {
-            if let Err(e) = std::fs::write(&path, DEFAULT_ENGRAM_RON) {
+            if let Err(e) = atomic_write(&path, DEFAULT_ENGRAM_RON.as_bytes()) {
                 errors.push(format!(
                     "Impossible de créer {} : {e}. Je repars sur tous les défauts.",
                     path.display()
@@ -123,7 +124,7 @@ mod tests {
     }
 
     fn write_licorne(dir: &Path, body: &str) -> std::io::Result<()> {
-        std::fs::write(dir.join(ENGRAM_FILE), body)
+        crate::atomic_write(&dir.join(ENGRAM_FILE), body.as_bytes()).map_err(std::io::Error::other)
     }
 
     #[test]

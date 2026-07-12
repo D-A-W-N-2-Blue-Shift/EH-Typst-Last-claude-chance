@@ -23,7 +23,12 @@ pub struct ModulesConfig {
 impl Default for ModulesConfig {
     fn default() -> Self {
         Self {
-            enabled: vec!["file_tree".into(), "editor".into(), "cockpit".into()],
+            enabled: vec![
+                "file_tree".into(),
+                "editor".into(),
+                "cockpit".into(),
+                "sticky_notes".into(),
+            ],
         }
     }
 }
@@ -133,34 +138,37 @@ mod tests {
         let dir = tempfile::tempdir()?;
         std::fs::write(
             dir.path().join("engram.ron"),
-            r#"{ "modules": Modules(enabled: ["cockpit"]) }"#,
+            r#"{ "modules": Modules(enabled: ["cockpit", "sticky_notes"]) }"#,
         )?;
         let (licorne, _) = crate::licorne::Licorne::load(dir.path());
         let mut reg = ModuleRegistry::new();
         reg.register("file_tree", || Box::new(Dummy));
         reg.register("editor", || Box::new(Dummy));
         reg.register("cockpit", || Box::new(Dummy));
+        reg.register("sticky_notes", || Box::new(Dummy));
         let c = ModulesConfig::load_from_licorne(&licorne, &reg);
         assert_eq!(
             c.enabled,
             vec![
                 "file_tree".to_string(),
                 "editor".to_string(),
-                "cockpit".to_string()
+                "cockpit".to_string(),
+                "sticky_notes".to_string()
             ]
         );
         Ok(())
     }
 
     #[test]
-    fn default_modules_section_is_spine_only() {
+    fn default_modules_section_includes_sticky_notes() {
         let cfg = ModulesConfig::default();
         assert_eq!(
             cfg.enabled,
             vec![
                 "file_tree".to_string(),
                 "editor".to_string(),
-                "cockpit".to_string()
+                "cockpit".to_string(),
+                "sticky_notes".to_string()
             ]
         );
     }

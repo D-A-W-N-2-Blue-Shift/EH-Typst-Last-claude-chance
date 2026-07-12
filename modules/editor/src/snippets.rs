@@ -14,6 +14,8 @@
 
 use std::path::Path;
 
+use engram_core::atomic_write;
+
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct Snippet {
     pub trigger: String,
@@ -40,7 +42,7 @@ impl SnippetSet {
             }
             for (name, content) in DEFAULT_SNIPPETS {
                 let p = dir.join(name);
-                if let Err(e) = std::fs::write(&p, content) {
+                if let Err(e) = atomic_write(&p, content.as_bytes()) {
                     errors.push(format!("Impossible d'écrire {} : {e}.", p.display()));
                 }
             }

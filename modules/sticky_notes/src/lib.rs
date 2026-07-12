@@ -13,7 +13,9 @@ mod render;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use engram_core::{CoreContext, CoreEvent, Module, ModuleResponse, RenderMode};
+use engram_core::{
+    CoreContext, CoreEvent, Module, ModuleResponse, RenderMode, StickyNoteMarkerRef,
+};
 
 use config::Config;
 use db::{NoteDraft, NoteRecord};
@@ -199,6 +201,22 @@ impl Module for StickyNotesModule {
 }
 
 impl StickyNotesModule {
+    fn marker_ref_from_draft(draft: &NoteDraft) -> Option<StickyNoteMarkerRef> {
+        Some(StickyNoteMarkerRef {
+            path: draft.source_path.clone()?,
+            anchor_line: draft.anchor_line.unwrap_or(1),
+            id: draft.id.clone(),
+        })
+    }
+
+    fn marker_ref_from_record(record: &NoteRecord) -> Option<StickyNoteMarkerRef> {
+        Some(StickyNoteMarkerRef {
+            path: record.source_path.clone()?,
+            anchor_line: record.anchor_line.unwrap_or(1),
+            id: record.id.clone(),
+        })
+    }
+
     fn persist_visibility(&mut self) {
         self.config.closed = self.closed;
         if let Err(e) = self.config.save(&self.config_dir) {
@@ -276,7 +294,14 @@ impl StickyNotesModule {
             self.list_error = Some("Aucun projet ouvert.".into());
             return;
         };
-        let mut draft = NoteDraft::new();
+        let mut draft = match NoteDraft::new() {
+            Ok(draft) => draft,
+            Err(e) => {
+                self.list_error = Some(e.clone());
+                self.status.push(format!("⚠ {e}"));
+                return;
+            }
+        };
         draft.source_path = self.current_source.clone();
         if draft.source_path.is_none() {
             self.list_error = Some("Ouvre d'abord un fichier source pour l'ancrage.".into());
@@ -288,6 +313,10 @@ impl StickyNotesModule {
             self.status.push(format!("⚠ {e}"));
             return;
         }
+        out.push(ModuleResponse::StickyNoteMarkerSync {
+            previous: None,
+            current: Self::marker_ref_from_draft(&draft),
+        });
         self.list_refresh_pending = true;
         out.push(ModuleResponse::OpenModuleWindow(self.name().to_string()));
         self.open_note(&id);
@@ -319,7 +348,7 @@ impl StickyNotesModule {
                     match action {
                         render::NoteAction::None => {}
                         render::NoteAction::Save => self.save_current_note(out),
-                        render::NoteAction::Delete => self.delete_current_note(),
+                        render::NoteAction::Delete => self.delete_current_note(out),
                         render::NoteAction::Close => {
                             self.selected_note_id = None;
                             self.note_draft = None;
@@ -348,6 +377,10 @@ impl StickyNotesModule {
         match db::save_note(&root, &draft, original) {
             Ok(()) => {
                 self.note_error = None;
+                out.push(ModuleResponse::StickyNoteMarkerSync {
+                    previous: original.and_then(Self::marker_ref_from_record),
+                    current: Self::marker_ref_from_draft(&draft),
+                });
                 self.list_refresh_pending = true;
                 out.push(ModuleResponse::OpenModuleWindow(self.name().to_string()));
             }
@@ -358,7 +391,7 @@ impl StickyNotesModule {
         }
     }
 
-    fn delete_current_note(&mut self) {
+    fn delete_current_note(&mut self, out: &mut Vec<ModuleResponse>) {
         let Some(root) = self.project_root.clone() else {
             self.note_error = Some("Aucun projet ouvert.".into());
             return;
@@ -368,6 +401,13 @@ impl StickyNotesModule {
         };
         match db::delete_note(&root, &id) {
             Ok(()) => {
+                out.push(ModuleResponse::StickyNoteMarkerSync {
+                    previous: self
+                        .note_original
+                        .as_ref()
+                        .and_then(Self::marker_ref_from_record),
+                    current: None,
+                });
                 self.selected_note_id = None;
                 self.note_draft = None;
                 self.note_original = None;
