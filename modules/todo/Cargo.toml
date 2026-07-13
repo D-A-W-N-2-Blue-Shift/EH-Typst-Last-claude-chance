@@ -1,0 +1,24 @@
+# ============================================================================
+# modules/todo/Cargo.toml — Module Todo Nexus
+#
+# Kanban orienté énergie disponible (doc §5.4). Dépend du core (trait
+# Module) et de nexus_db (couche de données). Supprimer ce dossier + retirer
+# "todo" du registre du binaire nexus = le module disparaît proprement.
+# ============================================================================
+
+[package]
+name = "todo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+engram_core = { path = "../../core" }
+nexus_db = { path = "../../nexus_db" }
+egui = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+ron = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

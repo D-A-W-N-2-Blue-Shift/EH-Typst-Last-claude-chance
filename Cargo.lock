@@ -119,6 +119,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f02882884d3e1bc524fb12c79f107f6ad0e1cfd498c536ffb494301740995dfe"
 
 [[package]]
+name = "articles"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "egui",
+ "engram_core",
+ "nexus_db",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
 name = "as-raw-xcb-connection"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -368,6 +380,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cockpit_nexus"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "engram_core",
+ "ron",
+ "serde",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
 name = "codespan-reporting"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -481,6 +505,20 @@ name = "cursor-icon"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
+
+[[package]]
+name = "dashboard"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "egui",
+ "engram_core",
+ "nexus_db",
+ "ron",
+ "serde",
+ "tempfile",
+ "tracing",
+]
 
 [[package]]
 name = "dirs"
@@ -1187,6 +1225,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "health"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "egui",
+ "engram_core",
+ "nexus_db",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
 name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1456,6 +1506,20 @@ checksum = "9afb3de4395d6b3e67a780b6de64b51c978ecf11cb9a462c66be7d4ca9039d33"
 dependencies = [
  "getrandom 0.3.4",
  "libc",
+]
+
+[[package]]
+name = "journal"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "egui",
+ "engram_core",
+ "nexus_db",
+ "ron",
+ "serde",
+ "tempfile",
+ "tracing",
 ]
 
 [[package]]
@@ -1738,6 +1802,61 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873"
 dependencies = [
  "jni-sys 0.3.1",
+]
+
+[[package]]
+name = "nexus_app"
+version = "0.1.0"
+dependencies = [
+ "articles",
+ "chrono",
+ "cockpit_nexus",
+ "dashboard",
+ "dirs",
+ "eframe",
+ "egui",
+ "engram_core",
+ "health",
+ "journal",
+ "nexus_db",
+ "nexus_hub",
+ "todo",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "nexus_db"
+version = "0.1.0"
+dependencies = [
+ "rusqlite",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "nexus_hub"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "engram_core",
+ "nexus_db",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
+name = "nexus_inspect"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "eframe",
+ "egui",
+ "nexus_db",
+ "tempfile",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -2927,6 +3046,20 @@ checksum = "c8323304221c2a851516f22236c5722a72eaa19749016521d6dff0824447d96d"
 dependencies = [
  "displaydoc",
  "zerovec",
+]
+
+[[package]]
+name = "todo"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "egui",
+ "engram_core",
+ "nexus_db",
+ "ron",
+ "serde",
+ "tempfile",
+ "tracing",
 ]
 
 [[package]]

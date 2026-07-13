@@ -1,0 +1,28 @@
+# ============================================================================
+# tools/nexus_inspect/Cargo.toml — nexus_inspect (doc §5.8)
+#
+# Binaire séparé, lecture seule. N'est PAS un module Nexus : pas de trait
+# Module, pas de CoreContext, pas de registre — un outil d'audit autonome,
+# comme le décrit le doc (arborescence §2 : "tools/nexus_inspect/", sibling
+# de modules/, pas dedans).
+# ============================================================================
+
+[package]
+name = "nexus_inspect"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "nexus_inspect"
+path = "src/main.rs"
+
+[dependencies]
+nexus_db = { path = "../../nexus_db" }
+egui = { workspace = true }
+eframe = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

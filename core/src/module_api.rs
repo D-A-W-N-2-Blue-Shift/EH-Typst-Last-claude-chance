@@ -123,6 +123,15 @@ pub enum ModuleResponse {
     /// Le core relance le binaire (avec un léger délai pour laisser l'instance
     /// courante libérer le socket IPC) puis ferme proprement la fenêtre racine.
     RestartApp,
+
+    /// Un module gérant un concept de « projet actif » publie sa racine
+    /// (`None` si aucun projet n'est ouvert, ou à la fermeture). Le core la
+    /// rediffuse à tous les modules via CoreEvent::ProjectRootUpdated —
+    /// c'est ainsi qu'un module dépendant du même projet apprend sa racine
+    /// SANS parler directement au module qui gère l'ouverture (les modules
+    /// ne se parlent jamais entre eux, le core est l'arbitre). Générique :
+    /// ne nomme aucun module spécifique, même mécanisme que PublishFileIndex.
+    PublishProjectRoot(Option<PathBuf>),
 }
 
 /// La seule voie de communication core → module.
@@ -180,6 +189,11 @@ pub enum CoreEvent {
     /// §3.4 — Relais de la demande "vue chronologique" de la timeline.
     /// Le module timeline s'ouvre et bascule sur la vue chronologie.
     TimelineChronologyRequested,
+
+    /// Relais d'un ModuleResponse::PublishProjectRoot. Chaque module
+    /// intéressé par « quel projet est actif » filtre et réagit ; les
+    /// autres l'ignorent (même mécanisme que FileIndexUpdated).
+    ProjectRootUpdated(Option<PathBuf>),
 }
 
 /// Contexte fourni aux modules à l'init : uniquement des chemins.

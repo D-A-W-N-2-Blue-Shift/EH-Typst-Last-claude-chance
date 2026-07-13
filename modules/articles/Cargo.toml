@@ -1,0 +1,23 @@
+# ============================================================================
+# modules/articles/Cargo.toml — Module Articles Nexus
+#
+# Éditeur de prose pour productions écrites (doc §5.5). Dépend du core (trait
+# Module + atomic_write) et de nexus_db (couche de données), mêmes deps que
+# journal — même patron de module. Supprimer ce dossier + retirer "articles"
+# du registre du binaire nexus = le module disparaît proprement.
+# ============================================================================
+
+[package]
+name = "articles"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+engram_core = { path = "../../core" }
+nexus_db = { path = "../../nexus_db" }
+egui = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

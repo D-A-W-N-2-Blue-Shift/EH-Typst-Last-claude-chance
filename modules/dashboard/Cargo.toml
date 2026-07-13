@@ -1,0 +1,26 @@
+# ============================================================================
+# modules/dashboard/Cargo.toml — Module Dashboard Nexus
+#
+# Vue croisée sommeil + état psy pour cette session (doc §5.6, §10 session
+# 6 — corrélations médication/tâches différées à la session 7). Dépend du
+# core (trait Module) et de nexus_db (couche de données). Supprimer ce
+# dossier + retirer "dashboard" du registre du binaire nexus = le module
+# disparaît proprement.
+# ============================================================================
+
+[package]
+name = "dashboard"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+engram_core = { path = "../../core" }
+nexus_db = { path = "../../nexus_db" }
+egui = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+ron = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

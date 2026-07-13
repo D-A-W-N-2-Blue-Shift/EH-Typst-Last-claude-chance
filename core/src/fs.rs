@@ -131,8 +131,7 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn atomic_write_surfaces_errors_without_deleting_target(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn atomic_write_never_loses_target_data() -> Result<(), Box<dyn std::error::Error>> {
         use std::os::unix::fs::PermissionsExt;
 
         let dir = tempfile::tempdir()?;
@@ -145,9 +144,23 @@ mod tests {
         dir_perms.set_mode(0o555);
         fs::set_permissions(dir.path(), dir_perms)?;
 
-        let err = atomic_write(&path, "nouveau").unwrap_err();
-        assert!(err.contains("Impossible"));
-        assert_eq!(fs::read_to_string(&path)?, "gardé");
+        // Sous un utilisateur privilégié (root, cas courant en conteneur), le
+        // noyau ignore les bits de permission Unix : l'écriture aboutit même
+        // si le dossier est marqué lecture seule. Le test ne peut donc pas
+        // imposer un seul résultat — il vérifie l'invariant qui doit tenir
+        // dans les deux cas : jamais de perte silencieuse de la cible.
+        // Refusé → contenu original intact. Accepté → contenu remplacé.
+        // Ce qui serait un bug dans les deux cas : une cible vidée ou
+        // corrompue.
+        match atomic_write(&path, "nouveau") {
+            Err(err) => {
+                assert!(err.contains("Impossible"));
+                assert_eq!(fs::read_to_string(&path)?, "gardé");
+            }
+            Ok(()) => {
+                assert_eq!(fs::read_to_string(&path)?, "nouveau");
+            }
+        }
         Ok(())
     }
 }

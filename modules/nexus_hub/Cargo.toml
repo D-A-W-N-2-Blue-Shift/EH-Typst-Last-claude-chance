@@ -1,0 +1,24 @@
+# ============================================================================
+# modules/nexus_hub/Cargo.toml — Module Hub Nexus
+#
+# Fenêtre principale de Nexus (doc de conception §5.1) : ouverture/création
+# de projet (arborescence §3), initialisation de nexus.db, affichage de son
+# état. Dépend du core (trait Module) et de nexus_db (couche de données —
+# pas un module au sens du trait Module, comparable à une dépendance directe
+# vers rusqlite). Supprimer ce dossier + retirer "nexus_hub" du registre du
+# binaire nexus = le module disparaît proprement.
+# ============================================================================
+
+[package]
+name = "nexus_hub"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+engram_core = { path = "../../core" }
+nexus_db = { path = "../../nexus_db" }
+egui = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

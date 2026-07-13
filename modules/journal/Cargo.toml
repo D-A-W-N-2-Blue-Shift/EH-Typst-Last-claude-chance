@@ -1,0 +1,25 @@
+# ============================================================================
+# modules/journal/Cargo.toml — Module Journal Nexus
+#
+# Entrée quotidienne (doc §5.2). Dépend du core (trait Module), de nexus_db
+# (couche de données) et de engram_core::atomic_write (écriture sûre, déjà
+# utilisée par file_tree côté écrivain). Supprimer ce dossier + retirer
+# "journal" du registre du binaire nexus = le module disparaît proprement.
+# ============================================================================
+
+[package]
+name = "journal"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+engram_core = { path = "../../core" }
+nexus_db = { path = "../../nexus_db" }
+egui = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+ron = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

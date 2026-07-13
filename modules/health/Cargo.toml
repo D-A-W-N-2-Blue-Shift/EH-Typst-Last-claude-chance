@@ -1,0 +1,24 @@
+# ============================================================================
+# modules/health/Cargo.toml — Module Santé Nexus
+#
+# Sous-vues Sommeil + État psy (doc de conception §5.3, session 2 de §10).
+# Fenêtre OS propre (OwnViewport), à la demande — comme cockpit côté
+# écrivain. Dépend du core (trait Module) et de nexus_db (couche de données).
+# Supprimer ce dossier + retirer "health" du registre du binaire nexus =
+# le module disparaît proprement.
+# ============================================================================
+
+[package]
+name = "health"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+engram_core = { path = "../../core" }
+nexus_db = { path = "../../nexus_db" }
+egui = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

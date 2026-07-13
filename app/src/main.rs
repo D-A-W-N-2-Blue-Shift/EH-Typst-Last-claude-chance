@@ -352,6 +352,12 @@ impl HiveApp {
                 tracing::info!(target: "core", "Redémarrage du programme demandé.");
                 self.restart_requested = true;
             }
+            ModuleResponse::PublishProjectRoot(_) => {
+                // Sans objet côté écrivain : aucun module d'engram_hive
+                // n'émet ni ne consomme cet événement (utilisé par Nexus
+                // pour partager la racine du projet entre nexus_hub et
+                // health, deux modules distincts sur la même base).
+            }
         }
     }
 

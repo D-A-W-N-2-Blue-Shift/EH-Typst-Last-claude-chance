@@ -1,0 +1,27 @@
+# ============================================================================
+# nexus_db/Cargo.toml — Couche de données partagée de Nexus
+#
+# Bibliothèque (pas un module GUI) : le schéma SQLite `nexus.db` (doc §8) et
+# l'accès typé. Partagée par les futurs modules Nexus (health, todo, journal,
+# dashboard). Ne dépend d'AUCUN module ni du core — infrastructure, comme le
+# fait `core` pour le framework.
+#
+# Dépendances justifiées (§7.4) :
+#   - rusqlite (bundled) : le moteur SQLite. Besoin fonctionnel : stockage
+#     structuré local, déjà utilisé par la version écrivain (file_tree).
+#   - serde_json : les champs `tags` (doc §8) sont des tableaux JSON en TEXT.
+#   - thiserror : erreurs typées (§7.5 « erreurs typées », pas de String nue).
+# ============================================================================
+
+[package]
+name = "nexus_db"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rusqlite = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

@@ -53,6 +53,71 @@ tools/engram_inspect/  binaire séparé §3.5 : ouvre index.db en lecture
 - **Timeline** — ⛔ placeholder temporel en attente DB V2, désactivé par défaut.
 - **Claude Terminal** — ⛔ assistant CLI à refondre plus tard, désactivé par défaut.
 
+## Nexus — seconde application sur le même core
+
+Fork de domaine (santé/organisation personnelle, doc de conception
+`HiveRBMKmodTcherenkov.md`) construit SANS copier ni modifier `core/` :
+`app_nexus/` est un second binaire qui bâtit son propre `CoreContext`
+(dossier `hive_rbmk_tcherenkov`, distinct d'`engram_hive_typst`) et son
+propre `ModuleRegistry`, avec ses propres modules sous `modules/` (noms
+distincts, zéro chevauchement avec le registre écrivain).
+
+```
+app_nexus/            binaire nexus : CoreContext propre, palette + Redrop
+                       globaux (pas des modules — doc de conception §2)
+nexus_db/              couche de données SQLite partagée par tous les
+                       modules Nexus (schéma doc §8) — PAS un module
+                       (pas de trait Module, pas de fenêtre)
+modules/nexus_hub/     hub Nexus : ouverture/création de projet
+modules/health/        sommeil + médication + état psy (3 sous-vues)
+modules/journal/       entrée quotidienne, template configurable
+modules/todo/          kanban orienté énergie, filtre "maintenant"
+modules/dashboard/     plots + corrélations + export CSV/.ics
+modules/articles/      éditeur d'articles
+modules/cockpit_nexus/ statut + actions sur la config Nexus
+tools/nexus_inspect/   binaire séparé, lecture seule (audit sans SQL)
+```
+
+Étanchéité identique à l'écrivain : chaque module Nexus est aveugle aux
+autres, ne parle qu'au core via `ModuleResponse`/`CoreEvent`. `nexus_db`
+n'est pas un module : une couche de données appelée directement par
+chaque module Nexus, comme le sont les tables SQL de `file_tree` pour
+l'écrivain.
+
+Le guide « Ajouter un module » ci-dessus s'applique à l'identique, en
+substituant `app_nexus/src/main.rs` à `app/src/main.rs` (seul point de
+couplage) — deux registres de modules indépendants sur le même trait
+`Module` du core partagé.
+
+### État des modules Nexus
+
+- **nexus_hub** — ✅ ouverture/création de projet (arborescence doc §3),
+  statut nexus.db, boutons vers les autres modules.
+- **health** — ✅ sommeil (moyenne glissante 28j), médication (registre +
+  historique + ressenti différé), état psy (5 dimensions, radar).
+- **journal** — ✅ auto-ouverture/création quotidienne, sidebar 7 jours,
+  sync DB, template configurable (section `journal` de engram.ron). Écart
+  documenté : corps en `egui::TextEdit::multiline`, pas le moteur
+  ropey/coloration/wikilinks de `editor` (constructeur privé — voir
+  `modules/journal/README_MODULE.md`).
+- **todo** — ✅ kanban 6 colonnes fixes (non configurables — statuts
+  canoniques dont dépend la récurrence), filtre "maintenant", récurrence,
+  sous-tâches, filtres par défaut configurables.
+- **dashboard** — ✅ plots sommeil/état psy, corrélations médication+tâches
+  (2 des 4 vues nommées au doc §4.2 — les 2 restantes hors périmètre
+  documenté), export CSV + `.ics`, seuils d'alerte et fenêtre par défaut
+  configurables (seuil d'échantillon minimal volontairement fixe, garde-fou
+  anti-invention).
+- **articles** — ✅ liste + création (slug auto-désambiguïsé), même écart
+  éditeur que journal.
+- **cockpit_nexus** — ✅ statut + actions par section de config (pas un
+  formulaire d'édition de valeurs — voir `modules/cockpit_nexus/README_MODULE.md`).
+- **Redrop** — ✅ pas un module (doc §2) : `CoreEvent` global déclenché
+  depuis `app_nexus/src/palette.rs` + `redrop.rs`.
+- **nexus_inspect** — ✅ binaire séparé, lecture seule (garantie SQLite,
+  pas seulement une convention de code), 5 onglets (2 des 4 vues de
+  corrélation absentes, même raison documentée que dashboard).
+
 ## Le contrat `ModuleResponse` (module → core)
 
 | Variante | Rôle |

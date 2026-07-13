@@ -1,0 +1,25 @@
+# ============================================================================
+# modules/cockpit_nexus/Cargo.toml — Module Cockpit Nexus
+#
+# Panneau statut + actions sur la config Nexus (doc §5.7 : « identique au
+# Cockpit de Hive »). Découplé comme le Cockpit écrivain (§7.1) : dépend
+# seulement du core (ThemeConfig/ThemeExpert/Palette, déjà publics et
+# partagés), d'AUCUNE crate de module Nexus — le renvoi vers Santé pour les
+# médicaments passe par un nom de module en chaîne (ModuleResponse::
+# OpenModuleWindow), pas un import de crate.
+# ============================================================================
+
+[package]
+name = "cockpit_nexus"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+engram_core = { path = "../../core" }
+egui = { workspace = true }
+serde = { workspace = true }
+ron = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

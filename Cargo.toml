@@ -22,6 +22,16 @@ members = [
     "modules/sticky_notes",
     "modules/timeline",
     "modules/claude_terminal",
+    "nexus_db",
+    "modules/nexus_hub",
+    "modules/health",
+    "modules/journal",
+    "modules/todo",
+    "modules/dashboard",
+    "modules/articles",
+    "modules/cockpit_nexus",
+    "app_nexus",
+    "tools/nexus_inspect",
 ]
 
 [workspace.dependencies]
