@@ -148,8 +148,9 @@ impl Module for CockpitNexusModule {
             return;
         }
         let viewport_id = egui::ViewportId::from_hash_of("cockpit_nexus");
-        let builder =
-            egui::ViewportBuilder::default().with_title("Hive-RBMK-mod-Tcherenkov — Cockpit");
+        let builder = egui::ViewportBuilder::default()
+            .with_title("Hive-RBMK-mod-Tcherenkov — Cockpit")
+            .with_inner_size([820.0, 620.0]);
         let mut open_palette = false;
         let mut open_health = false;
         egui_ctx.show_viewport_immediate(viewport_id, builder, |ctx, _class| {
@@ -290,9 +291,21 @@ impl CockpitNexusModule {
                      Objectif : accès direct, pas décor en plastique.",
                 );
             });
-        egui::CentralPanel::default()
-            .frame(egui::Frame::new().inner_margin(egui::Margin::same(14)))
-            .show(ctx, |ui| self.draw_overview(ui, open_health));
+        // §glitch géométrie (rapport signalé) : un Frame::inner_margin sur un
+        // CentralPanel dont le contenu a une hauteur variable (retour à la
+        // ligne dépendant de la largeur disponible) peut osciller — la marge
+        // réduit la largeur, un groupe de boutons passe sur 2 lignes, la
+        // hauteur de contenu change, le viewport renégocie sa taille, ce qui
+        // change à nouveau la largeur disponible, etc. Pas de Frame ici ;
+        // le contenu est dans une ScrollArea verticale pour que sa hauteur
+        // ne puisse plus jamais entraîner de renégociation de la taille de
+        // la fenêtre (absorbée par le scroll, jamais par un redimensionnement
+        // de viewport).
+        egui::CentralPanel::default().show(ctx, |ui| {
+            egui::ScrollArea::vertical()
+                .auto_shrink([false, false])
+                .show(ui, |ui| self.draw_overview(ui, open_health));
+        });
     }
 
     fn draw_status(&mut self, ui: &mut egui::Ui) {

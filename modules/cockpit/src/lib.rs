@@ -156,7 +156,9 @@ impl Module for CockpitModule {
             return;
         }
         let viewport_id = egui::ViewportId::from_hash_of("cockpit");
-        let builder = egui::ViewportBuilder::default().with_title("Engram Hive — Cockpit");
+        let builder = egui::ViewportBuilder::default()
+            .with_title("Engram Hive — Cockpit")
+            .with_inner_size([900.0, 660.0]);
         let mut open_palette = false;
         egui_ctx.show_viewport_immediate(viewport_id, builder, |ctx, _class| {
             if ctx.input(|i| i.viewport().close_requested()) {
@@ -306,23 +308,25 @@ impl CockpitModule {
                      Objectif: accès direct, pas décor en plastique.",
                 );
             });
-        egui::CentralPanel::default()
-            .frame(egui::Frame::new().inner_margin(egui::Margin::same(14)))
-            .show(ctx, |ui| match self.category {
-                Category::Overview => self.draw_overview(ui),
-                Category::Engram => self.draw_static_config_page(
-                    ui,
-                    "EH5",
-                    "engram.ron",
-                    "config/engram.ron — cible EH5 (basic / expert / modules / providers)",
-                    self.config_dir.join("engram.ron"),
-                    |this| {
-                        this.status.ok(
-                            "engram.ron relu depuis le disque. Relance requise si la section modules change.",
-                        );
-                    },
-                ),
-            });
+        egui::CentralPanel::default().show(ctx, |ui| {
+            egui::ScrollArea::vertical()
+                .auto_shrink([false, false])
+                .show(ui, |ui| match self.category {
+                    Category::Overview => self.draw_overview(ui),
+                    Category::Engram => self.draw_static_config_page(
+                        ui,
+                        "EH5",
+                        "engram.ron",
+                        "config/engram.ron — cible EH5 (basic / expert / modules / providers)",
+                        self.config_dir.join("engram.ron"),
+                        |this| {
+                            this.status.ok(
+                                "engram.ron relu depuis le disque. Relance requise si la section modules change.",
+                            );
+                        },
+                    ),
+                });
+        });
     }
 
     fn draw_status(&mut self, ui: &mut egui::Ui) {
