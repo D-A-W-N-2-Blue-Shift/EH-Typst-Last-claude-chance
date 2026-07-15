@@ -1,12 +1,19 @@
 # ============================================================================
-# Cargo.toml — Racine du workspace Engram_Hive
+# Cargo.toml — Racine du workspace Hive_RBMK_Tcherenkov
 #
-# Quatre crates :
-#   - core/              : le noyau (trait Module, bus de réponses, registre, IPC)
-#   - app/               : le binaire engram_hive (GUI eframe + CLI)
-#   - modules/file_tree/ : le module file tree (hub de navigation)
-#   - modules/editor/    : le module éditeur (prose, une fenêtre par fichier)
-#   - modules/cockpit/   : le module cockpit (édition UI des fichiers RON de config)
+# Ce dépôt ne construit QUE l'application Hive (suivi santé/organisation) :
+#   - core/                 : le noyau partagé (trait Module, bus, registre)
+#   - nexus_db/             : la couche de données SQLite (nexus.db)
+#   - modules/nexus_hub, health, journal, todo, dashboard, articles,
+#     cockpit_nexus         : les modules Hive
+#   - app_nexus/            : le binaire Hive_RBMK_Tcherenkov (GUI eframe)
+#
+# L'application écrivain Engram_Hive vit AILLEURS (dépôt beta séparé). Ses
+# anciens crates (app/, modules/editor, file_tree, cockpit, sticky_notes,
+# timeline, claude_terminal) restent sur le disque à titre d'archive mais
+# sont EXCLUS du workspace : plus compilés, plus testés, plus aucun binaire
+# engram_hive généré. `cargo build`/`cargo run` ne produisent plus qu'un
+# seul binaire : Hive_RBMK_Tcherenkov.
 #
 # Les versions des dépendances partagées sont centralisées ici.
 # ============================================================================
@@ -15,13 +22,6 @@
 resolver = "2"
 members = [
     "core",
-    "app",
-    "modules/file_tree",
-    "modules/editor",
-    "modules/cockpit",
-    "modules/sticky_notes",
-    "modules/timeline",
-    "modules/claude_terminal",
     "nexus_db",
     "modules/nexus_hub",
     "modules/health",
@@ -31,7 +31,15 @@ members = [
     "modules/articles",
     "modules/cockpit_nexus",
     "app_nexus",
-    "tools/nexus_inspect",
+]
+exclude = [
+    "app",
+    "modules/file_tree",
+    "modules/editor",
+    "modules/cockpit",
+    "modules/sticky_notes",
+    "modules/timeline",
+    "modules/claude_terminal",
 ]
 
 [workspace.dependencies]
@@ -50,22 +58,26 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
 notify = "6.1"
-# --- Module éditeur ---
-ropey = "1.6"
-serde_yaml = "0.9"
 serde_json = "1"
-arboard = { version = "3", default-features = false, features = ["wayland-data-control"] }
-regex = "1"
-rayon = "1.10"
-toml = "0.8"
-xxhash-rust = { version = "0.8", features = ["xxh3"] }
 chrono = "0.4"
-# --- Icône / fond (app) : décodage PNG uniquement, pas de lib C. ---
+# --- Icône / fond : décodage PNG uniquement, pas de lib C. ---
 image = { version = "0.25", default-features = false, features = ["png"] }
 # --- Backup WrapDrive (core) : archives tar.gz, pur Rust. ---
 tar = "0.4"
 flate2 = "1"
 thiserror = "1"
+# --- Entrées conservées pour les crates écrivain archivés (exclus) ---
+# Aucun membre actif du workspace ne les utilise : elles ne tirent RIEN
+# dans Cargo.lock ni dans le binaire Hive. Conservées uniquement pour que
+# les manifestes archivés (app/, modules/editor, …) redeviennent
+# résolvables tels quels si l'exclusion est un jour annulée.
+serde_yaml = "0.9"
+regex = "1"
+toml = "0.8"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+ropey = "1.6"
+arboard = { version = "3", default-features = false, features = ["wayland-data-control"] }
+rayon = "1.10"
 
 # ============================================================================
 # cargo audit — les advisories volontairement ignorées et leurs justifications
