@@ -5,7 +5,8 @@
 // 01_journal/YYYY/YYYY-MM-DD.typst du jour, je le crée depuis un template
 // par défaut s'il n'existe pas, j'affiche les 7 dernières entrées en
 // sidebar (cliquables), et je synchronise journal_entries (word_count, tags
-// extraits du frontmatter) à chaque sauvegarde.
+// extraits du frontmatter) ET l'index plein-texte fts_content (doc §5.1/§8 :
+// le hub cherche dans ce que les modules indexent) à chaque sauvegarde.
 //
 // Comment je marche : OwnViewport, fenêtre à la demande. J'apprends la
 // racine du projet actif via CoreEvent::ProjectRootUpdated (même mécanisme
@@ -197,9 +198,21 @@ impl JournalModule {
             word_count,
             tags,
         };
-        if let Err(e) = nexus_db::upsert_journal_entry(db, &record) {
+        // Les deux appels DB sont faits AVANT toute mutation de `self`
+        // (glados) : `body` emprunte `self.content` et est utilisé par
+        // `fts_upsert`, donc `&mut self` ne peut intervenir qu'après sa
+        // dernière utilisation (NLL).
+        let upsert_result = nexus_db::upsert_journal_entry(db, &record);
+        let fts_result = nexus_db::fts_upsert(db, &record.file_path, body);
+        if let Err(e) = upsert_result {
             self.glados(
                 "Impossible de synchroniser l'entrée journal.",
+                e.to_string(),
+            );
+        }
+        if let Err(e) = fts_result {
+            self.glados(
+                "Impossible d'indexer l'entrée journal pour la recherche.",
                 e.to_string(),
             );
         }
@@ -388,5 +401,28 @@ impl Module for JournalModule {
             self.save_current(&db);
         }
         self.db = None;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn save_current_indexe_le_corps_pour_la_recherche_plein_texte() {
+        let dir = tempfile::tempdir().expect("tmp");
+        let root = dir.path();
+        let db = nexus_db::open_in_memory().expect("db");
+        let mut m = JournalModule {
+            project_root: Some(root.to_path_buf()),
+            ..JournalModule::default()
+        };
+        let today = chrono::Local::now().date_naive();
+        m.switch_to_date(&db, root, today);
+        m.content
+            .push_str("\n\nBrouillard cognitif persistant ce matin.");
+        m.save_current(&db);
+        let hits = nexus_db::fts_search(&db, "brouillard", 10).expect("search");
+        assert_eq!(hits.len(), 1);
     }
 }

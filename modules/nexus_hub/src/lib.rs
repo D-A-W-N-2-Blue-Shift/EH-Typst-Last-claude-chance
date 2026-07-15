@@ -2,30 +2,39 @@
 // modules/nexus_hub/src/lib.rs — Point d'entrée du module Hub Nexus
 //
 // Ce que je fais : j'implémente le trait Module du core pour la fenêtre
-// principale de Nexus. Fondation de cette session : ouverture/création d'un
-// projet Nexus (arborescence doc §3, chemin saisi au clavier — pas de
-// sélecteur de dossier natif, cf. README_MODULE.md « limites »),
-// initialisation de nexus.db (.engram/nexus.db) via nexus_db::open_db,
-// affichage de son état (tables présentes / attendues).
+// principale de Nexus (doc §5.1). Ouverture/création d'un projet Nexus
+// (arborescence doc §3, chemin saisi au clavier — pas de sélecteur de
+// dossier natif, cf. README_MODULE.md « limites »), initialisation de
+// nexus.db (.engram/nexus.db) via nexus_db::open_db, résumé du jour
+// (journal écrit ? état psy loggé ? tâches "today" ?) qui REMPLACE les
+// stats narratives de Hive (doc §5.1 : « pas de stats narratives — à la
+// place : résumé du jour »), recherche plein-texte (fts_search), arbre de
+// navigation sur la structure du projet, watcher notify sur les fichiers
+// externes, bouton Redrop visible.
 //
 // Comment je marche : EmbeddedInCore, comme file_tree côté écrivain — je ne
 // possède pas de fenêtre OS propre, je me dessine dans un panel fourni par
 // le binaire nexus. Je ne parle au core QUE via ModuleResponse (règle
-// d'étanchéité §7 de la doctrine).
+// d'étanchéité §7 de la doctrine). Le bouton Redrop du hub pousse un
+// ModuleResponse::OpenPaletteRequested — je ne sais pas ouvrir le popup
+// Redrop moi-même (il vit dans app_nexus, le shell, doc §2 : « Redrop n'est
+// pas un module »), donc je ne fais que déclencher la palette qui, elle,
+// sait le faire (mirroir exact du hotkey Ctrl+Shift+P déjà câblé ailleurs).
 //
 // Comment me virer : supprimer modules/nexus_hub/ + retirer "nexus_hub" du
 // registre du binaire nexus (app_nexus/src/main.rs) + la dépendance de
 // app_nexus/Cargo.toml + le membre du Cargo.toml du workspace.
 //
 // Mes dépendances : engram_core (trait Module), nexus_db (couche de
-// données — pas un module au sens du trait Module).
-//
-// Différé (hors périmètre de cette fondation, §7.6 YAGNI) : arbre de
-// fichiers, index FTS, watcher notify, palette de commandes, bouton Redrop.
-// Viendront avec les modules health/todo/journal/dashboard.
+// données — pas un module au sens du trait Module), chrono (dates, déjà
+// dans le workspace), notify (watcher fichiers, déjà dans le workspace via
+// editor/file_tree).
 // ============================================================================
 
 mod project;
+mod summary;
+mod tree;
+mod watcher;
 
 use std::path::PathBuf;
 
@@ -52,6 +61,15 @@ pub struct NexusHubModule {
     ctx: Option<CoreContext>,
     proj: Option<OpenProject>,
     path_input: String,
+    /// Recherche plein-texte (doc §5.1). Requêtée à chaque frame quand non
+    /// vide — même philosophie que les moyennes glissantes de health/dashboard
+    /// (« recalculé depuis la DB, jamais mis en cache à la main »).
+    search_query: String,
+    /// Watcher notify (doc §5.1) sur le projet ouvert. `None` sans projet.
+    watcher: Option<watcher::ProjectWatcher>,
+    /// `true` si le watcher a signalé un changement externe non encore
+    /// acquitté par l'utilisateur (bannière dismissable, PAS une erreur).
+    external_change_notice: bool,
     /// Messages d'erreur visibles (max 4, dismissables) — même règle GLaDOS
     /// que file_tree : jamais d'erreur silencieuse.
     glados: Vec<UserError>,
@@ -78,7 +96,7 @@ impl NexusHubModule {
 
     /// Ouvre (`create = false`) ou crée puis ouvre (`create = true`) le
     /// projet dont le chemin est dans `path_input`.
-    fn open_or_create(&mut self, create: bool) {
+    fn open_or_create(&mut self, create: bool, egui_ctx: &egui::Context) {
         let raw = self.path_input.trim();
         if raw.is_empty() {
             self.glados("Indique un chemin de projet.", "path_input vide");
@@ -122,6 +140,14 @@ impl NexusHubModule {
                 return;
             }
         };
+        self.watcher = match watcher::ProjectWatcher::start(&root, egui_ctx.clone()) {
+            Ok(w) => Some(w),
+            Err(e) => {
+                self.glados("Surveillance des fichiers externes indisponible.", e);
+                None
+            }
+        };
+        self.external_change_notice = false;
         self.pending
             .push(ModuleResponse::PublishProjectRoot(Some(root.clone())));
         self.proj = Some(OpenProject { root, db });
@@ -153,10 +179,10 @@ impl NexusHubModule {
                 ui.text_edit_singleline(&mut self.path_input);
                 ui.horizontal(|ui| {
                     if ui.button("📂 Ouvrir").clicked() {
-                        self.open_or_create(false);
+                        self.open_or_create(false, ui.ctx());
                     }
                     if ui.button("✨ Nouveau (créer la structure)").clicked() {
-                        self.open_or_create(true);
+                        self.open_or_create(true, ui.ctx());
                     }
                 });
                 ui.add_space(6.0);
@@ -168,7 +194,125 @@ impl NexusHubModule {
             Some(p) => {
                 ui.heading("Projet Nexus");
                 ui.label(format!("Racine : {}", p.root.display()));
-                match nexus_db::present_tables(&p.db) {
+                if self.external_change_notice {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.colored_label(egui::Color32::from_rgb(120, 200, 255), "ℹ");
+                        ui.label(
+                            "Des fichiers ont été modifiés en dehors de l'application \
+                             (watcher notify).",
+                        );
+                        if ui.small_button("✕").clicked() {
+                            self.external_change_notice = false;
+                        }
+                    });
+                }
+
+                // Toutes les lectures via `p` (donc via `self.proj` emprunté
+                // en lecture) sont regroupées ICI, avant toute mutation de
+                // `self` (glados) — `p` n'est plus utilisé après ce bloc,
+                // ce que NLL exige pour autoriser `&mut self` plus bas.
+                let today = chrono::Local::now().date_naive();
+                let date_str = today.format("%Y-%m-%d").to_string();
+                let mut read_errs: Vec<(String, String)> = Vec::new();
+                let journal_today = match nexus_db::get_journal_entry_by_date(&p.db, &date_str) {
+                    Ok(j) => j,
+                    Err(e) => {
+                        read_errs.push((
+                            "Lecture du journal du jour impossible.".into(),
+                            e.to_string(),
+                        ));
+                        None
+                    }
+                };
+                let mood_logs = match nexus_db::list_mood_logs(&p.db) {
+                    Ok(m) => m,
+                    Err(e) => {
+                        read_errs.push(("Lecture de l'état psy impossible.".into(), e.to_string()));
+                        Vec::new()
+                    }
+                };
+                let tasks = match nexus_db::list_tasks(&p.db) {
+                    Ok(t) => t,
+                    Err(e) => {
+                        read_errs.push(("Lecture des tâches impossible.".into(), e.to_string()));
+                        Vec::new()
+                    }
+                };
+                let present_tables = nexus_db::present_tables(&p.db);
+                let tree_nodes = tree::build(&p.root);
+                let search_hits: Vec<nexus_db::FtsHit> = if self.search_query.trim().is_empty() {
+                    Vec::new()
+                } else {
+                    match nexus_db::fts_search(&p.db, self.search_query.trim(), 20) {
+                        Ok(hits) => hits,
+                        Err(e) => {
+                            read_errs.push(("Recherche impossible.".into(), e.to_string()));
+                            Vec::new()
+                        }
+                    }
+                };
+
+                for (msg, tech) in read_errs {
+                    self.glados(msg, tech);
+                }
+
+                let day_summary = summary::build(journal_today, &mood_logs, &tasks, today);
+                draw_day_summary(ui, &day_summary);
+                ui.add_space(8.0);
+                // Doc §5.1/§6 : bouton Redrop visible depuis le hub. Pousse
+                // la même OpenPaletteRequested que le hotkey Ctrl+Shift+P
+                // (doc §6 : le mécanisme EST la palette, une seule action
+                // y figure aujourd'hui) — pas un raccourci, le mécanisme
+                // documenté lui-même.
+                if ui
+                    .button(egui::RichText::new("💧 Redrop — enregistrer une prise").strong())
+                    .on_hover_text("Ctrl+Shift+P fait la même chose depuis n'importe où.")
+                    .clicked()
+                {
+                    self.pending.push(ModuleResponse::OpenPaletteRequested);
+                }
+                ui.add_space(8.0);
+                ui.separator();
+                ui.add_space(6.0);
+                ui.heading("Recherche");
+                ui.horizontal(|ui| {
+                    ui.label("🔍");
+                    ui.text_edit_singleline(&mut self.search_query);
+                    if !self.search_query.is_empty() && ui.button("✕").clicked() {
+                        self.search_query.clear();
+                    }
+                });
+                if !self.search_query.trim().is_empty() {
+                    if search_hits.is_empty() {
+                        ui.weak("Aucun résultat.");
+                    } else {
+                        egui::ScrollArea::vertical()
+                            .max_height(200.0)
+                            .id_salt("hub_search_results")
+                            .show(ui, |ui| {
+                                for hit in &search_hits {
+                                    ui.vertical(|ui| {
+                                        ui.strong(&hit.file_path);
+                                        ui.label(&hit.snippet);
+                                    });
+                                    ui.separator();
+                                }
+                            });
+                    }
+                }
+                ui.add_space(8.0);
+                ui.separator();
+                ui.add_space(6.0);
+                ui.heading("Fichiers");
+                egui::ScrollArea::vertical()
+                    .max_height(240.0)
+                    .id_salt("hub_tree")
+                    .show(ui, |ui| {
+                        draw_tree(ui, &tree_nodes);
+                    });
+                ui.add_space(6.0);
+
+                match present_tables {
                     Ok(present) => {
                         ui.label(format!(
                             "nexus.db : {}/{} tables présentes",
@@ -213,6 +357,8 @@ impl NexusHubModule {
                 ui.add_space(6.0);
                 if ui.button("Fermer le projet").clicked() {
                     self.proj = None;
+                    self.watcher = None;
+                    self.external_change_notice = false;
                     self.pending.push(ModuleResponse::PublishProjectRoot(None));
                 }
             }
@@ -231,8 +377,11 @@ impl Module for NexusHubModule {
     }
 
     fn update(&mut self, _egui_ctx: &egui::Context, _out: &mut Vec<ModuleResponse>) {
-        // Fondation : aucune logique différée (pas de watcher, pas
-        // d'indexeur — viendront avec les futurs modules health/todo/hub).
+        if let Some(w) = &self.watcher {
+            if w.poll_changed() {
+                self.external_change_notice = true;
+            }
+        }
     }
 
     fn render_mode(&self) -> RenderMode {
@@ -250,5 +399,85 @@ impl Module for NexusHubModule {
 
     fn shutdown(&mut self) {
         self.proj = None; // ferme la connexion nexus_db (Drop de rusqlite::Connection).
+    }
+}
+
+/// Rendu récursif de l'arbre de navigation (doc §5.1). Un dossier est un
+/// `CollapsingHeader` ; un fichier est un label cliquable qui l'ouvre avec
+/// le gestionnaire par défaut de l'OS (même mécanisme que `cockpit`/
+/// `cockpit_nexus` pour « Ouvrir fichier », doc §5.7 : `xdg-open`/`open`).
+fn draw_tree(ui: &mut egui::Ui, nodes: &[tree::TreeNode]) {
+    for node in nodes {
+        if node.is_dir {
+            egui::CollapsingHeader::new(format!("📁 {}", node.name))
+                .default_open(false)
+                .show(ui, |ui| {
+                    draw_tree(ui, &node.children);
+                });
+        } else if ui
+            .selectable_label(false, format!("📄 {}", node.name))
+            .clicked()
+        {
+            open_in_os(&node.path);
+        }
+    }
+}
+
+fn open_in_os(path: &std::path::Path) {
+    let cmd = if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    };
+    if let Err(e) = std::process::Command::new(cmd).arg(path).spawn() {
+        tracing::warn!("Ouverture de {} ratée avec {} : {e}", path.display(), cmd);
+    }
+}
+
+/// Rendu pur (aucun accès self/DB ici) du résumé du jour (doc §5.1).
+fn draw_day_summary(ui: &mut egui::Ui, s: &summary::DaySummary) {
+    ui.heading("Aujourd'hui");
+    let ok = egui::Color32::from_rgb(120, 255, 180);
+    ui.horizontal(|ui| {
+        if s.journal_today.is_some() {
+            ui.colored_label(ok, "✓");
+            ui.label("Journal écrit aujourd'hui.");
+        } else {
+            ui.weak("○");
+            ui.label("Pas encore d'entrée journal aujourd'hui.");
+        }
+    });
+    ui.horizontal(|ui| match &s.mood_today {
+        Some(m) => {
+            ui.colored_label(ok, "✓");
+            ui.label(format!(
+                "État psy loggé — épuisement {}/5, cognitif {}/5, fonctionnement {}/5.",
+                m.epuisement, m.cognitif, m.fonctionnement
+            ));
+        }
+        None => {
+            ui.weak("○");
+            ui.label("Pas encore d'état psy loggé aujourd'hui.");
+        }
+    });
+    if s.today_tasks.is_empty() {
+        ui.horizontal(|ui| {
+            ui.weak("○");
+            ui.label("Aucune tâche dans la colonne « Aujourd'hui ».");
+        });
+    } else {
+        ui.label(format!(
+            "Tâches « Aujourd'hui » ({}) :",
+            s.today_tasks.len()
+        ));
+        for t in &s.today_tasks {
+            ui.horizontal(|ui| {
+                ui.label("•");
+                ui.label(&t.titre);
+                if let Some(e) = &t.energie {
+                    ui.weak(format!("[{e}]"));
+                }
+            });
+        }
     }
 }

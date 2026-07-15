@@ -1,13 +1,16 @@
 // ============================================================================
 // modules/dashboard/src/lib.rs — Point d'entrée du module Dashboard
 //
-// Ce que je fais (doc §5.6, périmètre §10 session 6 — corrélations
-// médication/tâches différées à la session 7) : vue Sommeil (barres durée +
-// ligne moyenne glissante 28j + qualité en overlay, fenêtre 30/60/90 jours)
-// et vue État psy (radar semaine courante vs précédente, tendance 30 jours
-// par dimension, alerte si une dimension < 2 sur 3 jours consécutifs).
+// Ce que je fais (doc §5.6) : vue Sommeil (barres durée + ligne moyenne
+// glissante 28j + qualité en overlay, fenêtre 30/60/90 jours), vue État psy
+// (radar semaine courante vs précédente, tendance 30 jours par dimension,
+// alerte si une dimension < 2 sur 3 jours consécutifs), et vue Corrélations
+// — les 4 vues nommées par le doc §4.2 sont TOUTES représentées : charge
+// tâches/vélocité/énergie/bloquées, observance médication, sommeil→cognitif
+// (scatter + r²), courbe empirique médication (scatter brut ; SANS lissage
+// LOESS — voir correlations.rs et README_MODULE.md pour l'écart documenté).
 // Aucune donnée inventée : sous le seuil minimal, j'affiche "référentiel
-// insuffisant" plutôt qu'une courbe extrapolée. Export CSV des données
+// insuffisant" plutôt qu'une courbe extrapolée. Export CSV/.ics des données
 // brutes de chaque vue.
 //
 // Comment je marche : OwnViewport, fenêtre à la demande. J'apprends la
@@ -344,6 +347,88 @@ impl DashboardModule {
                  (0-5). Pas de taux vs fréquence attendue : ce champ n'existe pas dans le \
                  registre médicaments (doc §8) — voir README_MODULE.md.",
             );
+        }
+
+        ui.add_space(10.0);
+        ui.strong("Sommeil J-1 → cognitif J");
+        let sleep_logs = match nexus_db::list_sleep_logs(db) {
+            Ok(s) => s,
+            Err(e) => {
+                ui.colored_label(
+                    egui::Color32::from_rgb(255, 46, 136),
+                    format!("Lecture du sommeil impossible : {e}"),
+                );
+                Vec::new()
+            }
+        };
+        let sommeil_cognitif = correlations::corr_sommeil_cognition(&sleep_logs, &mood);
+        if sommeil_cognitif.is_empty() {
+            ui.weak("Référentiel insuffisant (aucune nuit appariée à une saisie d'état psy).");
+        } else {
+            let points: Vec<(f64, f64)> = sommeil_cognitif
+                .iter()
+                .map(|p| (p.duration_h, p.cognitif as f64))
+                .collect();
+            let width = ui.available_width().min(700.0);
+            charts::draw_scatter(
+                ui,
+                egui::vec2(width, 160.0),
+                &points,
+                egui::Color32::from_rgb(123, 0, 255),
+            );
+            match correlations::r_squared(&points) {
+                Some(r2) => ui.weak(format!(
+                    "Axe X = durée de sommeil (h) · axe Y = cognitif (1-5) · r² = {r2:.3} \
+                     ({} point(s)).",
+                    points.len()
+                )),
+                None => ui.weak(format!(
+                    "Axe X = durée de sommeil (h) · axe Y = cognitif (1-5) · r² non calculable \
+                     ({} point(s), variance insuffisante).",
+                    points.len()
+                )),
+            };
+        }
+
+        ui.add_space(10.0);
+        ui.strong("Courbe empirique médication");
+        let med_etat = correlations::corr_medication_etat(&doses, &mood);
+        if med_etat.is_empty() {
+            ui.weak(
+                "Référentiel insuffisant (aucune saisie d'état psy dans les 12h suivant une \
+                 prise).",
+            );
+        } else {
+            let cognitif_points: Vec<(f64, f64)> = med_etat
+                .iter()
+                .map(|p| (p.delta_minutes as f64, p.cognitif as f64))
+                .collect();
+            let fonctionnement_points: Vec<(f64, f64)> = med_etat
+                .iter()
+                .map(|p| (p.delta_minutes as f64, p.fonctionnement as f64))
+                .collect();
+            let width = ui.available_width().min(700.0);
+            ui.weak("cognitif (1-5) vs minutes post-prise :");
+            charts::draw_scatter(
+                ui,
+                egui::vec2(width, 140.0),
+                &cognitif_points,
+                egui::Color32::from_rgb(255, 46, 136),
+            );
+            ui.weak("fonctionnement (1-5) vs minutes post-prise :");
+            charts::draw_scatter(
+                ui,
+                egui::vec2(width, 140.0),
+                &fonctionnement_points,
+                egui::Color32::from_rgb(0, 200, 255),
+            );
+            ui.weak(format!(
+                "{} point(s) brut(s) — doc §5.6 : axe Y = score cognitif/fonctionnement. Pas de \
+                 courbe de tendance LOESS ici (algorithme sans précédent dans ce dépôt, voir \
+                 README_MODULE.md) — les points bruts sont déjà ce que le doc prescrit sous \
+                 N=20.",
+                med_etat.len()
+            ));
         }
     }
 

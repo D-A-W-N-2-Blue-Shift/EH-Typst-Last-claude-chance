@@ -25,26 +25,24 @@ ligne de SQL (règle « no black box » du doc) :
   elle-même fait respecter. Une tentative d'écriture échouerait même en cas
   de bug dans ce code.
 
-## Écart documenté (doc §4.2, §5.8)
-Le doc nomme 4 vues de corrélation : `corr_sommeil_cognition`,
-`corr_medication_etat`, `weekly_load`, `med_observance`. Seules les 2
-dernières sont implémentées ici — **dupliquées** depuis
-`modules/dashboard/src/correlations.rs` (logique identique, déjà prouvée à
-l'incrément 7), pas importées : `dashboard::correlations` est un module
-privé de sa crate, l'import serait de toute façon impossible, et
-`nexus_inspect` suit le même principe que les modules pairs (§7.1) — pas de
-dépendance croisée.
+## Vues de corrélation (doc §4.2, §5.8)
+Le doc nomme 4 vues : `corr_sommeil_cognition`, `corr_medication_etat`,
+`weekly_load`, `med_observance`. Les 4 sont implémentées ici — **dupliquées**
+depuis `modules/dashboard/src/correlations.rs` (logique identique, déjà
+prouvée), pas importées : `dashboard::correlations` est un module privé de
+sa crate, l'import serait de toute façon impossible, et `nexus_inspect` suit
+le même principe que les modules pairs (§7.1) — pas de dépendance croisée.
 
-`corr_sommeil_cognition` et `corr_medication_etat` ne sont PAS calculées :
-aucune des deux n'a de précédent Rust éprouvé ailleurs dans ce dépôt —
-`dashboard` les a lui-même explicitement exclues de son propre périmètre à
-l'incrément 7, pour la même raison (titre littéral de session, pas de
-logique à copier). Les inventer sous pression de temps pour cet incrément
-aurait signifié une logique de corrélation JAMAIS vérifiée, dans un outil
-dont la seule raison d'être est la fiabilité de lecture. La règle « no
-black box » reste respectée : les données brutes dont ces 2 vues auraient
-besoin (`sleep_log`, `mood_log`, `med_doses`) sont toutes lisibles dans
-l'onglet Santé, juste pas pré-corrélées.
+`corr_sommeil_cognition`/`corr_medication_etat` avaient été absentes
+(différées à tort comme hors périmètre à l'origine — relecture complète
+doc-vs-code a montré qu'aucune des deux n'était en fait hors de portée).
+Contrairement au dashboard, pas de scatter peint ici : les points bruts sont
+listés en texte (onglet Corrélations), cohérent avec le rôle d'audit lecture
+seule de cet outil — la visualisation vit côté dashboard.
+
+Écart restant, identique au dashboard : `corr_medication_etat` n'a pas de
+lissage LOESS (algorithme itératif sans précédent dans ce dépôt) — les
+points bruts sont listés, la LISSE elle-même non calculée (§A2).
 
 ## Comment me virer
 1. Supprimer `tools/nexus_inspect/`.

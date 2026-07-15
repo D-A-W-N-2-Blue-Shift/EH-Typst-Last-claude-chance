@@ -322,10 +322,7 @@ fn draw_taches(ui: &mut egui::Ui, db: &nexus_db::Connection) {
 }
 
 fn draw_correlations(ui: &mut egui::Ui, db: &nexus_db::Connection) {
-    ui.weak(
-        "corr_sommeil_cognition et corr_medication_etat (doc §4.2) ne sont pas calculées ici — \
-         voir README_MODULE.md. Les données brutes restent lisibles dans l'onglet Santé.",
-    );
+    ui.weak("Les 4 vues nommées par le doc §4.2 sont listées ci-dessous (points bruts).");
     ui.add_space(6.0);
     let (tasks, history) = match load_tasks_and_history(db) {
         Ok(v) => v,
@@ -401,6 +398,56 @@ fn draw_correlations(ui: &mut egui::Ui, db: &nexus_db::Connection) {
     }
     for t in &blocked {
         ui.label(format!("{} (bloquée depuis {})", t.titre, t.updated_at));
+    }
+
+    ui.add_space(10.0);
+    ui.strong("corr_sommeil_cognition (sommeil J-1 → cognitif J)");
+    let sleep = match nexus_db::list_sleep_logs(db) {
+        Ok(s) => s,
+        Err(err) => {
+            error_label(ui, format!("Lecture sleep_log impossible : {err}"));
+            Vec::new()
+        }
+    };
+    let sommeil_cognitif = correlations::corr_sommeil_cognition(&sleep, &mood);
+    if sommeil_cognitif.is_empty() {
+        ui.weak("Aucune donnée.");
+    } else {
+        let r2_points: Vec<(f64, f64)> = sommeil_cognitif
+            .iter()
+            .map(|p| (p.duration_h, p.cognitif as f64))
+            .collect();
+        let r2_label = correlations::r_squared(&r2_points)
+            .map(|v| format!("{v:.3}"))
+            .unwrap_or_else(|| "non calculable".into());
+        ui.weak(format!(
+            "{} point(s) · r² (durée vs cognitif) = {r2_label}",
+            sommeil_cognitif.len()
+        ));
+        for p in &sommeil_cognitif {
+            ui.label(format!(
+                "durée={:.1}h qualité={} cognitif={} épuisement={}",
+                p.duration_h, p.quality, p.cognitif, p.epuisement
+            ));
+        }
+    }
+
+    ui.add_space(10.0);
+    ui.strong("corr_medication_etat (courbe empirique médication)");
+    let med_etat = correlations::corr_medication_etat(&doses, &mood);
+    if med_etat.is_empty() {
+        ui.weak("Aucune donnée (aucune saisie d'état psy dans les 12h suivant une prise).");
+    } else {
+        ui.weak(format!(
+            "{} point(s) brut(s) — pas de lissage LOESS ici (voir README_MODULE.md).",
+            med_etat.len()
+        ));
+        for p in &med_etat {
+            ui.label(format!(
+                "+{} min · cognitif={} fonctionnement={}",
+                p.delta_minutes, p.cognitif, p.fonctionnement
+            ));
+        }
     }
 }
 

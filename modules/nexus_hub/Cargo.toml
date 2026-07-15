@@ -19,6 +19,8 @@ engram_core = { path = "../../core" }
 nexus_db = { path = "../../nexus_db" }
 egui = { workspace = true }
 tracing = { workspace = true }
+chrono = { workspace = true }
+notify = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3"

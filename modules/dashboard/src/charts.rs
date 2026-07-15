@@ -396,3 +396,44 @@ pub fn draw_energy_breakdown(
         );
     }
 }
+
+/// Nuage de points générique, axes auto-échelonnés sur les bornes réelles
+/// des données (doc §5.6 : « scatter » pour sommeil→cognitif et courbe
+/// empirique médication). `points` : (x, y). Rien n'est peint si vide —
+/// l'appelant affiche « référentiel insuffisant » lui-même. Un seul point,
+/// ou des points alignés sur un axe, sont centrés sans division par zéro
+/// (span nul remplacé par `f64::EPSILON`).
+pub fn draw_scatter(
+    ui: &mut egui::Ui,
+    size: egui::Vec2,
+    points: &[(f64, f64)],
+    color: egui::Color32,
+) {
+    let (rect, _response) = ui.allocate_exact_size(size, egui::Sense::hover());
+    if points.is_empty() {
+        return;
+    }
+    let painter = ui.painter_at(rect);
+    let (min_x, max_x) = min_max(points.iter().map(|(x, _)| *x));
+    let (min_y, max_y) = min_max(points.iter().map(|(_, y)| *y));
+    let span_x = (max_x - min_x).max(f64::EPSILON);
+    let span_y = (max_y - min_y).max(f64::EPSILON);
+    let margin = 8.0;
+    let x_for = |x: f64| -> f32 {
+        rect.left() + margin + ((x - min_x) / span_x) as f32 * (rect.width() - 2.0 * margin)
+    };
+    let y_for = |y: f64| -> f32 {
+        rect.bottom() - margin - ((y - min_y) / span_y) as f32 * (rect.height() - 2.0 * margin)
+    };
+    for (x, y) in points {
+        painter.circle_filled(
+            egui::pos2(x_for(*x), y_for(*y)),
+            3.0,
+            color.gamma_multiply(0.75),
+        );
+    }
+}
+
+fn min_max(values: impl Iterator<Item = f64>) -> (f64, f64) {
+    values.fold((f64::MAX, f64::MIN), |(lo, hi), v| (lo.min(v), hi.max(v)))
+}

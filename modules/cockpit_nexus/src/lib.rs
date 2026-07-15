@@ -15,9 +15,10 @@
 // dashboard (fenêtres temporelles, seuils d'alerte) ».
 //
 // Panneau : theme (rechargement à chaud, même mécanisme que le Cockpit
-// écrivain) + theme_expert + journal + dashboard + todo (rechargement =
-// relance requise, aucun de ces 3 modules ne relit sa config à chaud) + une
-// carte d'INFORMATION (pas un fichier) pour les médicaments, délibérément
+// écrivain) + theme_expert + journal + dashboard + todo + health
+// (rechargement = relance requise, aucun de ces 4 modules ne relit sa
+// config à chaud) + une carte d'INFORMATION (pas un fichier) pour les
+// médicaments, délibérément
 // hors RON — décision incrément 3 (health/README_MODULE.md) : nexus_db.
 // medications est la source de vérité, pas un fichier de config. Une ligne
 // de cockpit qui pointerait vers un fichier RON inexistant et jamais lu
@@ -403,11 +404,24 @@ impl CockpitNexusModule {
                     "todo",
                     &engram,
                     "modules/todo/src/config.rs → filtres par défaut",
-                    engram_state,
+                    engram_state.clone(),
                     ReloadMode::RestartRequired,
                     |this| {
                         this.status
                             .ok("todo relu depuis le disque. Relance requise.");
+                    },
+                );
+                ui.end_row();
+                self.draw_config_row(
+                    ui,
+                    "health",
+                    &engram,
+                    "modules/health/src/config.rs → rappel de ressenti différé (doc §5.3)",
+                    engram_state,
+                    ReloadMode::RestartRequired,
+                    |this| {
+                        this.status
+                            .ok("health relu depuis le disque. Relance requise.");
                     },
                 );
                 ui.end_row();

@@ -44,13 +44,27 @@ de 7 jours (liste explicite) ; observance médication → fonctionnement
 
 ## Décisions notables (§A2, §A10, §4.4)
 
-**Périmètre de la session 7 — lecture littérale du titre.** Le doc liste
-3 corrélations dans UNE seule sous-section §5.6 (sommeil→cognitif,
-médication→fonctionnement, tâches→épuisement), mais le titre de la session
-7 dit explicitement « corrélations médication + tâches ». Je m'en suis
-tenu au titre littéral : sommeil→cognitif N'EST PAS dans cet incrément,
-différé sans date assignée dans le §10 (aucune session ultérieure ne la
-nomme explicitement non plus).
+**Mise à jour (relecture complète doc-vs-code, post-livraison) : les 4 vues
+nommées par le doc §4.2 sont maintenant TOUTES représentées.** À la
+session 7, seules `weekly_load` et `med_observance` avaient été construites
+(lecture littérale du titre de la session : « corrélations médication +
+tâches », sans `corr_sommeil_cognition` ni `corr_medication_etat`, différées
+« sans date assignée »). Cette différence n'a jamais été refermée par une
+session ultérieure du §10 — ni le sommeil→cognitif ni la courbe empirique
+médication n'étaient en fait des angles morts nécessitant une décision
+architecturale : `corr_sommeil_cognition` est un JOIN + un r² en forme
+close (`correlations::r_squared`), et `corr_medication_etat` est un JOIN
+identique à `med_observance` (déjà bâti) sur la fenêtre 12h du doc §4.2.
+Les deux sont maintenant dans `correlations.rs`/`charts::draw_scatter`.
+
+**Écart restant, cette fois réellement irréductible sans invention :** la
+« courbe de tendance locale (LOESS si N>20) » de `corr_medication_etat`
+(doc §5.6) N'EST PAS calculée — LOESS est un algorithme de lissage itératif
+(régression locale pondérée par fenêtre glissante) sans aucun précédent
+dans ce dépôt ; l'improviser sans vérification serait moins honnête que
+d'afficher les points bruts seuls, que le doc lui-même prescrit comme repli
+sous N=20. Les points bruts SONT affichés pour tout N — seule la courbe
+lissée superposée manque.
 
 **Vue `med_observance` du doc (§4.2) : champ manquant, pas inventé.** Le
 doc décrit cette vue comme un « taux de prise effectif vs fréquence

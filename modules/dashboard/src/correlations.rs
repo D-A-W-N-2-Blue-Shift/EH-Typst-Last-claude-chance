@@ -1,17 +1,27 @@
 // ============================================================================
-// modules/dashboard/src/correlations.rs — Corrélations médication + tâches
-// (doc §5.6, périmètre exact de la session 7 du §10 : "corrélations
-// médication + tâches" — la corrélation sommeil→cognitif listée dans la
-// même sous-section du doc §5.6 n'est PAS dans ce périmètre littéral,
-// différée explicitement, voir README_MODULE.md).
+// modules/dashboard/src/correlations.rs — Corrélations (doc §5.6/§4.2)
 //
-// Écart documenté (§A2) : la vue `med_observance` du doc (§4.2) suppose un
-// "taux de prise effectif vs fréquence attendue", mais `medications` (doc
-// §8, schéma déjà construit à l'incrément 1) n'a AUCUN champ de fréquence
-// attendue. Je ne l'invente pas : je calcule ce qui EST dérivable du schéma
-// réel (nombre de prises effectives par semaine), apparié au fonctionnement
-// hebdomadaire moyen — la moitié observable de la vue documentée, pas
-// l'intégralité qu'un champ manquant rend impossible à produire.
+// Les 4 vues nommées par le doc §4.2 sont ICI TOUTES les 4 : weekly_load,
+// med_observance, corr_sommeil_cognition, corr_medication_etat. Les deux
+// dernières étaient absentes jusqu'à une relecture complète doc-vs-code —
+// ni l'une ni l'autre n'était en fait hors de portée : `corr_sommeil_
+// cognition` est un JOIN + un r² en forme close (rien d'inventé), et
+// `corr_medication_etat` est un JOIN identique à `med_observance` (déjà
+// bâti) — seule sa « courbe de tendance locale (LOESS si N>20) » reste NON
+// implémentée (voir la note sur `MedEtatPoint`/`corr_medication_etat` :
+// les points bruts, que le doc lui-même prescrit comme repli sous N=20,
+// sont TOUJOURS affichés ; c'est la LISSE LOESS elle-même, algorithme
+// itératif non trivial sans précédent dans ce dépôt, qui reste un écart
+// honnête plutôt qu'une approximation inventée, §A2).
+//
+// Écart documenté restant (§A2) : la vue `med_observance` du doc (§4.2)
+// suppose un "taux de prise effectif vs fréquence attendue", mais
+// `medications` (doc §8, schéma déjà construit à l'incrément 1) n'a AUCUN
+// champ de fréquence attendue. Je ne l'invente pas : je calcule ce qui EST
+// dérivable du schéma réel (nombre de prises effectives par semaine),
+// apparié au fonctionnement hebdomadaire moyen — la moitié observable de la
+// vue documentée, pas l'intégralité qu'un champ manquant rend impossible à
+// produire.
 // ============================================================================
 
 use chrono::{Datelike, NaiveDate, NaiveDateTime};
@@ -203,6 +213,120 @@ pub fn med_observance(
         .collect()
 }
 
+/// Un point de sommeil apparié à une saisie d'état psy (doc §5.6/§4.2, vue
+/// `corr_sommeil_cognition`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct SleepCognitionPoint {
+    pub duration_h: f64,
+    pub quality: i64,
+    pub cognitif: i64,
+    pub epuisement: i64,
+}
+
+/// Sommeil J-1 → cognitif J (doc §5.6, vue `corr_sommeil_cognition` §4.2).
+/// `sleep_log.date` est déjà daté au réveil (doc §5.3 : « saisie idéalement
+/// au réveil »), donc la nuit "J-1→J" porte la date J — le rapprochement se
+/// fait sur la MÊME date, cohérent avec le JOIN "sur date" du §4.2 (pas un
+/// décalage +1 explicite à inventer). Une nuit peut apparaître plusieurs
+/// fois si plusieurs saisies d'état psy ont lieu le même jour — chacune est
+/// un point d'observation distinct.
+pub fn corr_sommeil_cognition(
+    sleep: &[nexus_db::SleepLog],
+    mood: &[nexus_db::MoodLog],
+) -> Vec<SleepCognitionPoint> {
+    let mut points = Vec::new();
+    for s in sleep {
+        let Ok(sleep_date) = NaiveDate::parse_from_str(&s.date, "%Y-%m-%d") else {
+            continue;
+        };
+        for m in mood {
+            if parse_date_or_datetime(&m.logged_at) == Some(sleep_date) {
+                points.push(SleepCognitionPoint {
+                    duration_h: s.duration_h,
+                    quality: s.quality,
+                    cognitif: m.cognitif,
+                    epuisement: m.epuisement,
+                });
+            }
+        }
+    }
+    points
+}
+
+/// Coefficient de détermination r² d'une régression linéaire simple (doc
+/// §5.6 : « scatter, r² affiché »). `None` si non calculable — moins de 2
+/// points, ou variance nulle sur x ou y (une droite non définie n'a pas de
+/// r², mieux vaut l'absence qu'une valeur inventée, §A2).
+pub fn r_squared(points: &[(f64, f64)]) -> Option<f64> {
+    let n = points.len();
+    if n < 2 {
+        return None;
+    }
+    let n_f = n as f64;
+    let mean_x = points.iter().map(|(x, _)| x).sum::<f64>() / n_f;
+    let mean_y = points.iter().map(|(_, y)| y).sum::<f64>() / n_f;
+    let mut cov = 0.0;
+    let mut var_x = 0.0;
+    let mut var_y = 0.0;
+    for (x, y) in points {
+        let dx = x - mean_x;
+        let dy = y - mean_y;
+        cov += dx * dy;
+        var_x += dx * dx;
+        var_y += dy * dy;
+    }
+    if var_x <= f64::EPSILON || var_y <= f64::EPSILON {
+        return None;
+    }
+    let r = cov / (var_x.sqrt() * var_y.sqrt());
+    Some(r * r)
+}
+
+/// Un point de la courbe empirique médication (doc §5.6/§4.2, vue
+/// `corr_medication_etat`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct MedEtatPoint {
+    pub delta_minutes: i64,
+    pub cognitif: i64,
+    pub fonctionnement: i64,
+}
+
+/// Courbe empirique médication (doc §5.6, vue `corr_medication_etat` §4.2) :
+/// chaque paire (prise, saisie d'état psy DANS les 12h suivantes) devient un
+/// point brut. Le doc prescrit lui-même les points bruts comme forme de
+/// repli sous N=20 (« sinon points bruts uniquement ») — LA COURBE DE
+/// TENDANCE LOCALE (LOESS) ELLE-MÊME N'EST PAS CALCULÉE ICI : algorithme de
+/// lissage itératif sans aucun précédent dans ce dépôt, ajouter une
+/// approximation maison non vérifiée serait moins honnête qu'afficher les
+/// points bruts seuls (§A2/§A3). Une prise peut apparaître plusieurs fois si
+/// plusieurs saisies suivent dans la fenêtre — chacune reste un point
+/// distinct, aucune n'est privilégiée arbitrairement.
+pub fn corr_medication_etat(
+    doses: &[nexus_db::MedDose],
+    mood: &[nexus_db::MoodLog],
+) -> Vec<MedEtatPoint> {
+    let mut points = Vec::new();
+    for d in doses {
+        let Some(taken_at) = parse_datetime(&d.taken_at) else {
+            continue;
+        };
+        for m in mood {
+            let Some(logged_at) = parse_datetime(&m.logged_at) else {
+                continue;
+            };
+            let delta = logged_at.signed_duration_since(taken_at);
+            if delta >= chrono::Duration::zero() && delta <= chrono::Duration::hours(12) {
+                points.push(MedEtatPoint {
+                    delta_minutes: delta.num_minutes(),
+                    cognitif: m.cognitif,
+                    fonctionnement: m.fonctionnement,
+                });
+            }
+        }
+    }
+    points
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,6 +369,28 @@ mod tests {
             logged_at: logged_at.to_string(),
             epuisement,
             cognitif: 3,
+            sensoriel: 3,
+            masquage: 3,
+            fonctionnement,
+            notes: None,
+        }
+    }
+
+    /// Comme `mood`, mais avec `cognitif` contrôlable — nécessaire aux tests
+    /// de `corr_sommeil_cognition`/`corr_medication_etat`, qui portent
+    /// spécifiquement sur ce champ (`mood` le fixe à 3 pour les tests plus
+    /// anciens qui ne s'y intéressaient pas).
+    fn mood_full(
+        logged_at: &str,
+        epuisement: i64,
+        cognitif: i64,
+        fonctionnement: i64,
+    ) -> nexus_db::MoodLog {
+        nexus_db::MoodLog {
+            id: logged_at.to_string(),
+            logged_at: logged_at.to_string(),
+            epuisement,
+            cognitif,
             sensoriel: 3,
             masquage: 3,
             fonctionnement,
@@ -435,5 +581,103 @@ mod tests {
             vec![("A".to_string(), 1), ("B".to_string(), 1)],
             "les deux médicaments doivent apparaître séparément, pas fusionnés"
         );
+    }
+
+    fn sleep_log(date: &str, duration_h: f64, quality: i64) -> nexus_db::SleepLog {
+        nexus_db::SleepLog {
+            id: date.to_string(),
+            date: date.to_string(),
+            duration_h,
+            quality,
+            notes: None,
+        }
+    }
+
+    #[test]
+    fn corr_sommeil_cognition_apparie_sur_la_meme_date() {
+        let sleep = vec![sleep_log("2026-07-12", 7.5, 4)];
+        let mood = vec![
+            mood_full("2026-07-12T09:00:00", 2, 3, 3), // même date : apparié
+            mood_full("2026-07-13T09:00:00", 5, 1, 5), // date différente : ignoré
+        ];
+        let points = corr_sommeil_cognition(&sleep, &mood);
+        assert_eq!(points.len(), 1);
+        assert_eq!(points[0].duration_h, 7.5);
+        assert_eq!(points[0].quality, 4);
+        assert_eq!(points[0].cognitif, 3);
+        assert_eq!(points[0].epuisement, 2);
+    }
+
+    #[test]
+    fn corr_sommeil_cognition_une_nuit_peut_apparier_plusieurs_saisies() {
+        let sleep = vec![sleep_log("2026-07-12", 7.0, 3)];
+        let mood = vec![
+            mood_full("2026-07-12T09:00:00", 2, 3, 3),
+            mood_full("2026-07-12T20:00:00", 2, 4, 4),
+        ];
+        assert_eq!(corr_sommeil_cognition(&sleep, &mood).len(), 2);
+    }
+
+    #[test]
+    fn corr_sommeil_cognition_vide_sans_correspondance() {
+        let sleep = vec![sleep_log("2026-07-12", 7.0, 3)];
+        let mood = vec![mood_full("2026-08-01T09:00:00", 2, 3, 3)];
+        assert!(corr_sommeil_cognition(&sleep, &mood).is_empty());
+    }
+
+    #[test]
+    fn r_squared_correlation_parfaite() {
+        // y = 2x exactement : corrélation parfaite, r² = 1.
+        let points = vec![(1.0, 2.0), (2.0, 4.0), (3.0, 6.0), (4.0, 8.0)];
+        let r2 = r_squared(&points).expect("calculable");
+        assert!((r2 - 1.0).abs() < 1e-9, "r²={r2}, attendu ~1.0");
+    }
+
+    #[test]
+    fn r_squared_aucune_variance_x_est_none() {
+        let points = vec![(5.0, 1.0), (5.0, 2.0), (5.0, 3.0)];
+        assert_eq!(r_squared(&points), None);
+    }
+
+    #[test]
+    fn r_squared_moins_de_deux_points_est_none() {
+        assert_eq!(r_squared(&[]), None);
+        assert_eq!(r_squared(&[(1.0, 1.0)]), None);
+    }
+
+    #[test]
+    fn corr_medication_etat_filtre_la_fenetre_12h() {
+        let doses = vec![nexus_db::MedDose {
+            id: "d1".into(),
+            med_id: "m1".into(),
+            taken_at: "2026-07-12T08:00:00".into(),
+            dose_mg: 20.0,
+            ressenti: None,
+            notes: None,
+        }];
+        let mood = vec![
+            mood_full("2026-07-12T09:30:00", 2, 4, 4), // +1h30 : dans la fenêtre
+            mood_full("2026-07-12T21:00:00", 3, 1, 3), // +13h : hors fenêtre
+            mood_full("2026-07-12T07:00:00", 1, 5, 2), // avant la prise : hors fenêtre
+        ];
+        let points = corr_medication_etat(&doses, &mood);
+        assert_eq!(points.len(), 1);
+        assert_eq!(points[0].delta_minutes, 90);
+        assert_eq!(points[0].cognitif, 4);
+        assert_eq!(points[0].fonctionnement, 4);
+    }
+
+    #[test]
+    fn corr_medication_etat_borne_incluse_a_12h_pile() {
+        let doses = vec![nexus_db::MedDose {
+            id: "d1".into(),
+            med_id: "m1".into(),
+            taken_at: "2026-07-12T08:00:00".into(),
+            dose_mg: 20.0,
+            ressenti: None,
+            notes: None,
+        }];
+        let mood = vec![mood_full("2026-07-12T20:00:00", 3, 3, 3)];
+        assert_eq!(corr_medication_etat(&doses, &mood).len(), 1);
     }
 }

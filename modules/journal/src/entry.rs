@@ -1,11 +1,10 @@
 // ============================================================================
 // modules/journal/src/entry.rs — Logique pure d'une entrée de journal
 //
-// Chemin canonique 01_journal/YYYY/YYYY-MM-DD.typst (doc §5.2), template par
-// défaut (le réglage "configurable dans journal.ron" est différé — pas de
-// Cockpit Nexus pour le porter avant la session 8, doc §10 ; le template en
-// dur est un point de départ honnête, pas une fonctionnalité manquante
-// maquillée). Frontmatter YAML minimal (même convention que le reste de
+// Chemin canonique 01_journal/YYYY/YYYY-MM-DD.typst (doc §5.2), template
+// configurable via la section "journal" de engram.ron (config.rs) — `
+// DEFAULT_TEMPLATE` ici est la valeur par défaut de cette section, pas un
+// gabarit figé. Frontmatter YAML minimal (même convention que le reste de
 // l'écosystème Typst du projet : bloc `---`), parsing manuel — pas de
 // dépendance serde_yaml pour un besoin aussi restreint (§7.4).
 // ============================================================================

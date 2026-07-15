@@ -5,7 +5,10 @@
 // (doc §5.4). 6 colonnes (backlog/today/doing/blocked/done/dropped), filtre
 // "maintenant" (croise l'énergie des tâches avec le cognitif le plus récent
 // de mood_log), filtre contexte, signalement des tâches sans durée, sous-
-// tâches (1 niveau), récurrence (régénération automatique à done).
+// tâches (1 niveau — sélecteur "Sous-tâche de" limité aux tâches de premier
+// niveau, sur la liste COMPLÈTE non filtrée), récurrence (3 règles connues
+// + champ libre pour une règle custom, doc §5.4 — non régénérée seule si
+// non reconnue, §A2) avec régénération automatique à `done`.
 //
 // Comment je marche : OwnViewport, fenêtre à la demande. J'apprends la
 // racine du projet actif via CoreEvent::ProjectRootUpdated (même mécanisme
@@ -366,6 +369,14 @@ impl TodoModule {
         if self.show_new_task {
             let mut close = false;
             let mut confirm = false;
+            // Candidats pour « Sous-tâche de » : tâches de premier niveau
+            // SEULES (parent_id absent), sur la liste COMPLÈTE (pas
+            // `visible`, qui est filtrée par contexte/énergie — un parent
+            // masqué par le filtre courant doit rester sélectionnable). Un
+            // seul niveau de imbrication (doc §5.4) : une sous-tâche ne peut
+            // donc jamais apparaître ici.
+            let parent_candidates: Vec<&nexus_db::Task> =
+                tasks.iter().filter(|t| t.parent_id.is_none()).collect();
             egui::Window::new("Nouvelle tâche")
                 .collapsible(false)
                 .resizable(false)
@@ -374,6 +385,31 @@ impl TodoModule {
                     ui.horizontal(|ui| {
                         ui.label("Titre :");
                         ui.text_edit_singleline(&mut self.new_task_form.titre);
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Sous-tâche de :");
+                        let selected_label = self
+                            .new_task_form
+                            .parent_id
+                            .as_deref()
+                            .and_then(|pid| parent_candidates.iter().find(|t| t.id == pid))
+                            .map_or("aucune (tâche de premier niveau)", |t| t.titre.as_str());
+                        egui::ComboBox::from_id_salt("new_task_parent")
+                            .selected_text(selected_label)
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut self.new_task_form.parent_id,
+                                    None,
+                                    "aucune (tâche de premier niveau)",
+                                );
+                                for t in &parent_candidates {
+                                    ui.selectable_value(
+                                        &mut self.new_task_form.parent_id,
+                                        Some(t.id.clone()),
+                                        &t.titre,
+                                    );
+                                }
+                            });
                     });
                     ui.horizontal(|ui| {
                         ui.label("Énergie :");
@@ -412,15 +448,25 @@ impl TodoModule {
                                 *r,
                             );
                         }
-                        if ui
-                            .selectable_value(
-                                &mut self.new_task_form.recurrence_rule,
-                                String::new(),
-                                "aucune",
-                            )
-                            .changed()
-                        {}
+                        ui.selectable_value(
+                            &mut self.new_task_form.recurrence_rule,
+                            String::new(),
+                            "aucune",
+                        );
                     });
+                    ui.horizontal(|ui| {
+                        ui.label("…ou règle personnalisée (doc §5.4 « règle custom ») :");
+                        ui.text_edit_singleline(&mut self.new_task_form.recurrence_rule);
+                    });
+                    if !self.new_task_form.recurrence_rule.is_empty()
+                        && !RECURRENCES.contains(&self.new_task_form.recurrence_rule.as_str())
+                    {
+                        ui.weak(
+                            "Règle non reconnue automatiquement : enregistrée telle quelle, \
+                             mais la régénération à l'échéance ne se déclenchera pas seule \
+                             (§A2 — aucune syntaxe de récurrence personnalisée inventée).",
+                        );
+                    }
                     if !self.new_task_form.recurrence_rule.is_empty()
                         && self.new_task_form.echeance.trim().is_empty()
                     {
@@ -580,5 +626,56 @@ impl Module for TodoModule {
 
     fn shutdown(&mut self) {
         self.db = None;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_task_avec_parent_id_ecrit_bien_la_sous_tache() {
+        let db = nexus_db::open_in_memory().expect("db");
+        let mut m = TodoModule::default();
+        m.new_task_form.titre = "Parent".to_string();
+        m.create_task(&db);
+        let parent_id = nexus_db::list_tasks(&db).expect("list")[0].id.clone();
+
+        m.new_task_form.titre = "Enfant".to_string();
+        m.new_task_form.parent_id = Some(parent_id.clone());
+        m.create_task(&db);
+
+        let tasks = nexus_db::list_tasks(&db).expect("list");
+        let enfant = tasks.iter().find(|t| t.titre == "Enfant").expect("enfant");
+        assert_eq!(enfant.parent_id.as_deref(), Some(parent_id.as_str()));
+    }
+
+    #[test]
+    fn create_task_reinitialise_le_formulaire_dont_le_parent_id() {
+        let db = nexus_db::open_in_memory().expect("db");
+        let mut m = TodoModule::default();
+        m.new_task_form.titre = "Parent".to_string();
+        m.create_task(&db);
+        let parent_id = nexus_db::list_tasks(&db).expect("list")[0].id.clone();
+
+        m.new_task_form.titre = "Enfant".to_string();
+        m.new_task_form.parent_id = Some(parent_id);
+        m.create_task(&db);
+        assert!(m.new_task_form.parent_id.is_none());
+    }
+
+    #[test]
+    fn create_task_avec_parent_id_inexistant_echoue_sans_vider_le_formulaire() {
+        // `parent_id` est une FK réelle (doc §8) : un id qui ne correspond à
+        // aucune tâche doit échouer proprement, pas être inséré en silence
+        // — et le formulaire de l'utilisateur ne doit pas être perdu sur un
+        // échec (il pourrait vouloir juste changer le parent et réessayer).
+        let db = nexus_db::open_in_memory().expect("db");
+        let mut m = TodoModule::default();
+        m.new_task_form.titre = "Orpheline".to_string();
+        m.new_task_form.parent_id = Some("id-inexistant".to_string());
+        m.create_task(&db);
+        assert!(nexus_db::list_tasks(&db).expect("list").is_empty());
+        assert_eq!(m.new_task_form.titre, "Orpheline");
     }
 }

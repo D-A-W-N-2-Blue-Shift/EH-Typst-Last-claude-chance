@@ -5,9 +5,8 @@
 // l'ambiguïté doc §3 vs §5.3/§7 — voir README_MODULE.md « Décision
 // structurelle »). Pas de courbe théorique : heure(s) de prise du jour +
 // historique 7 jours seulement. Ressenti différé : champ disponible 3h
-// après la prise (mécanisme livré ; le réglage "configurable off" est
-// différé — pas de Cockpit Nexus pour le piloter avant la session 8, doc
-// §10).
+// après la prise, activable/désactivable via la section "health" de
+// engram.ron (config.rs) — doc §5.3 « configurable off ».
 // ============================================================================
 
 use chrono::{NaiveDate, NaiveDateTime};
