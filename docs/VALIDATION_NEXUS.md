@@ -17,7 +17,7 @@ une machine avec écran (Fedora ou équivalent Wayland/X11) pour fermer cet
 - `wayland-devel` (Fedora) ou `libwayland-dev` (Debian) installé.
 - `cargo build --workspace` termine sans erreur (déjà prouvé en headless à
   chaque incrément — revérifier sur la machine cible avant de commencer).
-- Binaires : `target/debug/Hive_RBMK_Tcherenkov` et `target/debug/nexus_inspect`.
+- Binaire : `target/debug/Hive_RBMK_Tcherenkov` (l'unique binaire du workspace).
 - Un dossier vide et accessible en écriture pour servir de projet de test.
 
 ---
@@ -64,7 +64,7 @@ une machine avec écran (Fedora ou équivalent Wayland/X11) pour fermer cet
 
 - **Action** : ouvrir Santé, sous-vue Sommeil, saisir durée=7.5, qualité=4,
   valider. Répéter avec des durées différentes sur au moins 7 jours
-  simulés (ou modifier directement `sleep_log` via `nexus_inspect` pour
+  simulés (ou modifier directement `sleep_log` via `sqlite3` pour
   aller plus vite).
 - **Résultat attendu** : après la 7e nuit, l'écart en % à la moyenne
   personnelle 28 jours s'affiche (avant, rien ou un message d'insuffisance
@@ -81,7 +81,7 @@ une machine avec écran (Fedora ou équivalent Wayland/X11) pour fermer cet
 - **Résultat attendu** : la prise apparaît immédiatement dans l'historique
   du jour. Le champ « ressenti » n'est PAS proposé tout de suite.
 - **Action suivante** : avancer l'horloge système de 3h (ou modifier
-  `taken_at` via `nexus_inspect`/SQL direct pour le test), rouvrir la vue.
+  `taken_at` via `sqlite3 <projet>/.engram/nexus.db` pour le test), rouvrir la vue.
 - **Résultat attendu** : le champ ressenti (1-5) est maintenant proposé.
 - **Raison diagnostique** : le délai de 3h (doc §5.3) est un seuil
   temporel réel comparé à `taken_at`, pas un simple booléen "après la
@@ -127,11 +127,11 @@ une machine avec écran (Fedora ou équivalent Wayland/X11) pour fermer cet
 
 ### 3.2 Template configurable
 
-- **Action** : éditer manuellement `~/.config/hive_rbmk_tcherenkov/engram.ron`,
+- **Action** : éditer manuellement `~/.config/hive_rbmk_tcherenkov/Hive_RBMK.ron`,
   ajouter une section `"journal": (template: "Gabarit perso {date}\n")`.
   Ouvrir Cockpit → ligne « journal » → « Recharger depuis disque » (ou
   relancer l'app). Supprimer l'entrée du jour dans `journal_entries`
-  (via `nexus_inspect`) puis rouvrir Journal un jour où le fichier
+  (via `sqlite3`) puis rouvrir Journal un jour où le fichier
   n'existe pas encore.
 - **Résultat attendu** : le nouveau fichier créé contient « Gabarit perso »
   suivi de la date du jour, PAS le gabarit par défaut (« = Journal — … »).
@@ -161,7 +161,7 @@ une machine avec écran (Fedora ou équivalent Wayland/X11) pour fermer cet
   titre/énergie/contexte/durée, échéance = +7 jours. L'historique
   (`task_history`) garde la trace de la transition de l'ancienne tâche.
 - **Raison diagnostique** : régénération automatique, jamais silencieuse
-  (visible dans `nexus_inspect`, onglet Tâches, sous `task_history`).
+  (visible via `sqlite3 <projet>/.engram/nexus.db "SELECT * FROM task_history;"`).
 
 ---
 
@@ -207,7 +207,7 @@ une machine avec écran (Fedora ou équivalent Wayland/X11) pour fermer cet
 
 ### 7.1 Thème — rechargement à chaud
 
-- **Action** : éditer `engram.ron`, changer une couleur de la section
+- **Action** : éditer `Hive_RBMK.ron`, changer une couleur de la section
   `theme`. Ouvrir Cockpit → ligne « theme » → « Recharger depuis disque ».
 - **Résultat attendu** : la couleur change IMMÉDIATEMENT dans toutes les
   fenêtres ouvertes, sans relancer l'application.
@@ -226,34 +226,3 @@ une machine avec écran (Fedora ou équivalent Wayland/X11) pour fermer cet
   RIEN (`ModuleResponse::RestartApp` tombait dans un `_ => {}` silencieux
   côté `app_nexus`). Si le redémarrage échoue silencieusement, la
   régression est revenue.
-
----
-
-## 8. nexus_inspect
-
-### 8.1 Lecture seule garantie
-
-- **Action** : ouvrir un projet dans `nexus_inspect`, tenter de modifier
-  quoi que ce soit dans l'interface (il n'y a aucun champ éditable —
-  c'est le point).
-- **Résultat attendu** : aucune action d'écriture n'est même proposée à
-  l'écran.
-- **Vérification renforcée (optionnelle, ligne de commande)** : avec
-  `nexus_inspect` ouvert sur le projet, tenter une écriture directe via
-  `sqlite3 <projet>/.engram/nexus.db "PRAGMA query_only;"` dans un AUTRE
-  terminal — doit retourner `1` tant que `nexus_inspect` détient la
-  connexion en lecture seule.
-- **Raison diagnostique** : la garantie est au niveau SQLite
-  (`SQLITE_OPEN_READ_ONLY` + `PRAGMA query_only`), pas seulement l'absence
-  de bouton — c'est ce qui rend l'outil sûr même en cas de bug futur.
-
-### 8.2 Intégrité — détection réelle
-
-- **Action** : avec `Hive_RBMK_Tcherenkov` FERMÉ (pour éviter un conflit d'écriture),
-  supprimer manuellement un fichier journal indexé (`rm
-  <projet>/01_journal/AAAA/AAAA-MM-JJ.typst` pour une date déjà indexée).
-  Ouvrir `nexus_inspect` → onglet Intégrité.
-- **Résultat attendu** : une ligne « fichier manquant » citant exactement
-  ce chemin.
-- **Raison diagnostique** : prouve que le contrôle compare vraiment
-  l'index DB au disque, pas une vérification cosmétique toujours verte.

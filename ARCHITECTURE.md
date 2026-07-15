@@ -1,4 +1,17 @@
-# Engram_Hive — Architecture
+# Architecture
+
+> **Note de tête (post-restructuration).** Ce dépôt ne construit plus que
+> **Hive_RBMK_Tcherenkov** (suivi santé/organisation). L'application
+> écrivain Engram_Hive vit dans un dépôt beta séparé ; ses crates (`app/`,
+> `modules/editor`, `file_tree`, `cockpit`, `sticky_notes`, `timeline`,
+> `claude_terminal`) restent sur le disque à titre d'archive mais sont
+> **exclus du workspace** — plus compilés, plus testés. Les sections
+> ci-dessous qui les décrivent sont conservées comme documentation
+> HISTORIQUE de l'architecture d'origine ; la section « Nexus — seconde
+> application sur le même core » décrit l'application réellement construite
+> (elle n'est plus « seconde » : c'est la seule). L'outil `nexus_inspect` a
+> été retiré (décision architecte). Le fichier de configuration unique est
+> `Hive_RBMK.ron` (ex-`engram.ron`, migré automatiquement au lancement).
 
 ## Vue d'ensemble
 
@@ -75,7 +88,7 @@ modules/todo/          kanban orienté énergie, filtre "maintenant"
 modules/dashboard/     plots + corrélations + export CSV/.ics
 modules/articles/      éditeur d'articles
 modules/cockpit_nexus/ statut + actions sur la config Nexus
-tools/nexus_inspect/   binaire séparé, lecture seule (audit sans SQL)
+(retiré)               tools/nexus_inspect a été supprimé — décision architecte
 ```
 
 Étanchéité identique à l'écrivain : chaque module Nexus est aveugle aux
@@ -96,27 +109,29 @@ couplage) — deux registres de modules indépendants sur le même trait
 - **health** — ✅ sommeil (moyenne glissante 28j), médication (registre +
   historique + ressenti différé), état psy (5 dimensions, radar).
 - **journal** — ✅ auto-ouverture/création quotidienne, sidebar 7 jours,
-  sync DB, template configurable (section `journal` de engram.ron). Écart
-  documenté : corps en `egui::TextEdit::multiline`, pas le moteur
-  ropey/coloration/wikilinks de `editor` (constructeur privé — voir
-  `modules/journal/README_MODULE.md`).
+  sync DB + index plein-texte, template configurable (section `journal` de
+  Hive_RBMK.ron). Écart documenté : corps en `egui::TextEdit::multiline`,
+  pas le moteur ropey/coloration/wikilinks de `editor` (constructeur
+  privé — voir `modules/journal/README_MODULE.md`).
 - **todo** — ✅ kanban 6 colonnes fixes (non configurables — statuts
-  canoniques dont dépend la récurrence), filtre "maintenant", récurrence,
-  sous-tâches, filtres par défaut configurables.
-- **dashboard** — ✅ plots sommeil/état psy, corrélations médication+tâches
-  (2 des 4 vues nommées au doc §4.2 — les 2 restantes hors périmètre
-  documenté), export CSV + `.ics`, seuils d'alerte et fenêtre par défaut
-  configurables (seuil d'échantillon minimal volontairement fixe, garde-fou
-  anti-invention).
-- **articles** — ✅ liste + création (slug auto-désambiguïsé), même écart
-  éditeur que journal.
+  canoniques dont dépend la récurrence), filtre "maintenant", récurrence
+  (3 règles + champ libre), sous-tâches (sélecteur de parent), filtres par
+  défaut configurables.
+- **dashboard** — ✅ plots sommeil/état psy, LES 4 vues de corrélation du
+  doc §4.2 (weekly_load, med_observance, corr_sommeil_cognition avec r²,
+  corr_medication_etat en points bruts — seul le lissage LOESS reste un
+  écart documenté), export CSV + `.ics`, seuils d'alerte et fenêtre par
+  défaut configurables (seuil d'échantillon minimal volontairement fixe,
+  garde-fou anti-invention).
+- **articles** — ✅ liste + création (slug auto-désambiguïsé), index
+  plein-texte à la sauvegarde, même écart éditeur que journal.
 - **cockpit_nexus** — ✅ statut + actions par section de config (pas un
   formulaire d'édition de valeurs — voir `modules/cockpit_nexus/README_MODULE.md`).
 - **Redrop** — ✅ pas un module (doc §2) : `CoreEvent` global déclenché
   depuis `app_nexus/src/palette.rs` + `redrop.rs`.
-- **nexus_inspect** — ✅ binaire séparé, lecture seule (garantie SQLite,
-  pas seulement une convention de code), 5 onglets (2 des 4 vues de
-  corrélation absentes, même raison documentée que dashboard).
+- **nexus_inspect** — ❌ RETIRÉ (décision architecte : inutile). Les
+  données restent inspectables sans SQL via les onglets des modules, et en
+  SQL direct via `sqlite3 <projet>/.engram/nexus.db`.
 
 ## Le contrat `ModuleResponse` (module → core)
 

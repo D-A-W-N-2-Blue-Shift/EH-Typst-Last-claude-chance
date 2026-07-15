@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Hive RBMK Tcherenkov
+GenericName=Suivi santé et organisation
+Comment=Outil de mesure longitudinale personnelle — sommeil, médication, état psy, tâches.
+Exec=Hive_RBMK_Tcherenkov
+Icon=Hive_RBMK_Tcherenkov
+Terminal=false
+Categories=Office;Utility;
+StartupNotify=true
