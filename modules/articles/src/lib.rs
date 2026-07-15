@@ -9,7 +9,8 @@
 // formulaire (titre/statut/tags/date_cible/destination), corps en zone de
 // texte libre. Stats simples (doc §5.5, « pas de stats orientées roman ») :
 // nombre de mots + temps de lecture estimé, jamais stockés (dérivés à
-// l'affichage depuis le corps).
+// l'affichage depuis le corps). Le corps est aussi indexé dans fts_content
+// à chaque sauvegarde (doc §5.1/§8 : recherche plein-texte depuis le hub).
 //
 // Comment je marche : OwnViewport, fenêtre à la demande. J'apprends la
 // racine du projet actif via CoreEvent::ProjectRootUpdated (même mécanisme
@@ -146,8 +147,20 @@ impl ArticlesModule {
             word_count,
             updated_at: chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
         };
-        if let Err(e) = nexus_db::upsert_article(db, &record) {
+        // Les deux appels DB sont faits AVANT toute mutation de `self`
+        // (glados) : `body` emprunte `self.content` et est utilisé par
+        // `fts_upsert`, donc `&mut self` ne peut intervenir qu'après sa
+        // dernière utilisation (NLL) — même contrainte que journal.
+        let upsert_result = nexus_db::upsert_article(db, &record);
+        let fts_result = nexus_db::fts_upsert(db, &record.file_path, body);
+        if let Err(e) = upsert_result {
             self.glados("Impossible de synchroniser l'article.", e.to_string());
+        }
+        if let Err(e) = fts_result {
+            self.glados(
+                "Impossible d'indexer l'article pour la recherche.",
+                e.to_string(),
+            );
         }
     }
 
@@ -521,6 +534,28 @@ mod tests {
         let articles = nexus_db::list_articles(&db).expect("list");
         assert_eq!(articles.len(), 1);
         assert_eq!(articles[0].word_count, 4);
+    }
+
+    #[test]
+    fn save_current_indexe_le_corps_pour_la_recherche_plein_texte() {
+        let dir = tempfile::tempdir().expect("tmp");
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("04_articles")).expect("mkdir");
+        let db = nexus_db::open_in_memory().expect("db");
+        let mut m = ArticlesModule::default();
+        m.new_title_input = "Brouillard cognitif".to_string();
+        m.create_new(&db, root);
+        m.content = "---\ntitre: \"Brouillard cognitif\"\nstatut: brouillon\ntags: []\ndate_cible: \"\"\ndestination: \"\"\n---\n\nUn paragraphe qui parle de brouillard cognitif persistant."
+            .to_string();
+        m.save_current(&db);
+        let hits = nexus_db::fts_search(&db, "brouillard", 10).expect("search");
+        assert_eq!(hits.len(), 1);
+        assert!(hits[0].file_path.ends_with("brouillard_cognitif.typst"));
+        // Le frontmatter n'est PAS indexé, seul le corps l'est : "statut"
+        // n'apparaît que dans le frontmatter de cet article.
+        assert!(nexus_db::fts_search(&db, "brouillon", 10)
+            .expect("search")
+            .is_empty());
     }
 
     #[test]

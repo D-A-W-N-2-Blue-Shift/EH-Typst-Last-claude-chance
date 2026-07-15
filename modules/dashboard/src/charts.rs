@@ -66,7 +66,7 @@ pub fn draw_sleep_chart(
         .collect();
     for pair in points.windows(2) {
         if let [Some(a), Some(b)] = pair {
-            painter.line_segment([*a, *b], egui::Stroke::new(2.0, avg_color));
+            painter.line_segment([*a, *b], egui::Stroke::new(2.0_f32, avg_color));
         }
     }
 }
@@ -109,7 +109,10 @@ pub fn draw_dimension_trend(
             .map(|(i, (_, dims))| egui::pos2(rect.left() + i as f32 * step, y_for(accessor(dims))))
             .collect();
         for pair in pts.windows(2) {
-            painter.line_segment([pair[0], pair[1]], egui::Stroke::new(1.5, colors[dim_idx]));
+            painter.line_segment(
+                [pair[0], pair[1]],
+                egui::Stroke::new(1.5_f32, colors[dim_idx]),
+            );
         }
     }
 
@@ -161,7 +164,7 @@ pub fn draw_week_radar(
     for (i, label) in crate::logic::DIMENSION_LABELS.iter().enumerate() {
         let angle = std::f32::consts::TAU * (i as f32) / 5.0 - std::f32::consts::FRAC_PI_2;
         let edge = center + egui::vec2(angle.cos(), angle.sin()) * radius;
-        painter.line_segment([center, edge], egui::Stroke::new(1.0, axis_color));
+        painter.line_segment([center, edge], egui::Stroke::new(1.0_f32, axis_color));
         let label_pos = center + egui::vec2(angle.cos(), angle.sin()) * (radius + 16.0);
         painter.text(
             label_pos,
@@ -175,7 +178,7 @@ pub fn draw_week_radar(
         let pts: Vec<egui::Pos2> = (0..5).map(|i| point_for(f64::from(ring), i)).collect();
         painter.add(egui::Shape::closed_line(
             pts,
-            egui::Stroke::new(0.5, axis_color.gamma_multiply(0.5)),
+            egui::Stroke::new(0.5_f32, axis_color.gamma_multiply(0.5)),
         ));
     }
     if let Some(prev) = previous {
@@ -183,14 +186,14 @@ pub fn draw_week_radar(
         let pts: Vec<egui::Pos2> = (0..5).map(|i| point_for(vals[i], i)).collect();
         painter.add(egui::Shape::closed_line(
             pts,
-            egui::Stroke::new(1.5, previous_color),
+            egui::Stroke::new(1.5_f32, previous_color),
         ));
     }
     let vals = as_array(current);
     let pts: Vec<egui::Pos2> = (0..5).map(|i| point_for(vals[i], i)).collect();
     painter.add(egui::Shape::closed_line(
         pts,
-        egui::Stroke::new(2.0, current_color),
+        egui::Stroke::new(2.0_f32, current_color),
     ));
 }
 
@@ -253,7 +256,7 @@ pub fn draw_weekly_load_chart(ui: &mut egui::Ui, size: egui::Vec2, load: &[Weekl
     }
     for pair in epuisement_pts.windows(2) {
         if let [Some(a), Some(b)] = pair {
-            painter.line_segment([*a, *b], egui::Stroke::new(2.0, epuisement_color));
+            painter.line_segment([*a, *b], egui::Stroke::new(2.0_f32, epuisement_color));
         }
     }
 }
@@ -352,7 +355,7 @@ pub fn draw_med_observance_chart(ui: &mut egui::Ui, size: egui::Vec2, weeks: &[M
     }
     for pair in fonctionnement_pts.windows(2) {
         if let [Some(a), Some(b)] = pair {
-            painter.line_segment([*a, *b], egui::Stroke::new(2.0, fonctionnement_color));
+            painter.line_segment([*a, *b], egui::Stroke::new(2.0_f32, fonctionnement_color));
         }
     }
 }
@@ -395,4 +398,45 @@ pub fn draw_energy_breakdown(
             egui::Color32::from_gray(200),
         );
     }
+}
+
+/// Nuage de points générique, axes auto-échelonnés sur les bornes réelles
+/// des données (doc §5.6 : « scatter » pour sommeil→cognitif et courbe
+/// empirique médication). `points` : (x, y). Rien n'est peint si vide —
+/// l'appelant affiche « référentiel insuffisant » lui-même. Un seul point,
+/// ou des points alignés sur un axe, sont centrés sans division par zéro
+/// (span nul remplacé par `f64::EPSILON`).
+pub fn draw_scatter(
+    ui: &mut egui::Ui,
+    size: egui::Vec2,
+    points: &[(f64, f64)],
+    color: egui::Color32,
+) {
+    let (rect, _response) = ui.allocate_exact_size(size, egui::Sense::hover());
+    if points.is_empty() {
+        return;
+    }
+    let painter = ui.painter_at(rect);
+    let (min_x, max_x) = min_max(points.iter().map(|(x, _)| *x));
+    let (min_y, max_y) = min_max(points.iter().map(|(_, y)| *y));
+    let span_x = (max_x - min_x).max(f64::EPSILON);
+    let span_y = (max_y - min_y).max(f64::EPSILON);
+    let margin = 8.0;
+    let x_for = |x: f64| -> f32 {
+        rect.left() + margin + ((x - min_x) / span_x) as f32 * (rect.width() - 2.0 * margin)
+    };
+    let y_for = |y: f64| -> f32 {
+        rect.bottom() - margin - ((y - min_y) / span_y) as f32 * (rect.height() - 2.0 * margin)
+    };
+    for (x, y) in points {
+        painter.circle_filled(
+            egui::pos2(x_for(*x), y_for(*y)),
+            3.0,
+            color.gamma_multiply(0.75),
+        );
+    }
+}
+
+fn min_max(values: impl Iterator<Item = f64>) -> (f64, f64) {
+    values.fold((f64::MAX, f64::MIN), |(lo, hi), v| (lo.min(v), hi.max(v)))
 }

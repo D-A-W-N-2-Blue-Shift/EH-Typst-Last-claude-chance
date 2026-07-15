@@ -4,7 +4,7 @@
 // Un thread de fond archive périodiquement le projet ACTIF en .tar.gz.
 // Invisible : aucune UI, aucune notification, SAUF en cas d'erreur (remontée
 // en GLaDOS dans la status bar du core). Configuré par la section "backup" de
-// engram.ron (ou legacy licorne-a-gerber.ron) (cf. BackupConfig).
+// Hive_RBMK.ron (ou legacy licorne-a-gerber.ron) (cf. BackupConfig).
 //
 // Projet actif : lu depuis ~/.config/engram_hive/modules/file_tree/
 // last_project.ron (relu à chaque backup ; suivre le module file_tree sans en
@@ -19,7 +19,7 @@ use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-/// Section "backup" de engram.ron. Tous les champs ont un défaut : repli
+/// Section "backup" de Hive_RBMK.ron. Tous les champs ont un défaut : repli
 /// legacy sur licorne-a-gerber.ron si besoin.
 /// commenter une ligne = revenir au défaut.
 #[derive(Debug, Clone, serde::Deserialize)]

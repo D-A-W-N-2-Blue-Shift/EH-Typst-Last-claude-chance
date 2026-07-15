@@ -1,13 +1,15 @@
 # assets/
 
-Assets visuels d'Engram_Hive. Chargés au runtime (jamais `include_bytes!` :
-un asset manquant ne casse pas le build, l'app démarre sans).
+Assets visuels de Hive_RBMK_Tcherenkov. EMBARQUÉS dans le binaire à la
+compilation (`include_bytes!`, voir `app_nexus/src/assets.rs`) : les fichiers
+doivent exister au build, mais un contenu corrompu ne fait que déclencher un
+fallback propre au lancement (icône système / pas de fond), jamais de panique.
 
-| Fichier        | Usage                          | Format conseillé              |
-|----------------|--------------------------------|-------------------------------|
-| `icon.png`     | Icône d'application (§2.3)      | PNG carré, ≥ 256×256, RGBA    |
-| `core_bg.png`  | Fond de la fenêtre core (§2.4)  | PNG paysage (badge/bannière)  |
+| Fichier                   | Usage                      | Format conseillé           |
+|---------------------------|----------------------------|----------------------------|
+| `Hive-RBMK-icone.png`     | Icône d'application        | PNG carré, ≥ 256×256, RGBA |
+| `Hive-RBMK-bck_core.png`  | Fond de la fenêtre core    | PNG paysage (filigrane)    |
 
-Le chargement est géré par `app/src/assets.rs`. Si un fichier est absent ou
-illisible : avertissement dans les logs, fallback propre (icône système /
-pas de fond).
+Les pixels actuels sont hérités de l'ancien projet (placeholders) : remplace
+le CONTENU des fichiers par tes visuels Hive, sans changer les noms — aucun
+changement de code requis, un simple rebuild suffit.

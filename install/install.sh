@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Installation de Engram_hive dans l'espace utilisateur.
+# Installation de Hive_RBMK_Tcherenkov dans l'espace utilisateur.
 # Requis : cargo, Rust toolchain stable.
 
 set -euo pipefail
 
-BINAIRE="engram_hive"
+BINAIRE="Hive_RBMK_Tcherenkov"
 DEST_BIN="${HOME}/.local/bin"
 DEST_APPS="${HOME}/.local/share/applications"
-DEST_ICONE="${HOME}/.local/share/engram_hive"
+DEST_ICONE="${HOME}/.local/share/hive_rbmk_tcherenkov"
 
 echo "on monte d'un etage vu qu'on m'a releguer dans un placard qui pue la vieille chaussette"
 
@@ -20,7 +20,7 @@ if [ ! -f "Cargo.toml" ]; then
     exit 1
 fi
 
-echo "=== Build release de engram_hive ==="
+echo "=== Build release de Hive_RBMK_Tcherenkov ==="
 # Point 2 : Tentative de build parfait. Si échec, fallback sur un build standard.
 if ! RUSTFLAGS="-C target-cpu=native" cargo build --release; then
     echo "Avertissement : Le build optimisé (native CPU) a foiré ,enfin vu ta machine de merde cherche pas plus loin." >&2
@@ -42,9 +42,9 @@ cp "target/release/${BINAIRE}" "${DEST_BIN}/${BINAIRE}"
 chmod +x "${DEST_BIN}/${BINAIRE}"
 
 echo "=== Installation de l'icône, une faute de gout si tu veux mon avis  ==="
-if [ -f "assets/icon.png" ]; then
+if [ -f "assets/Hive-RBMK-icone.png" ]; then
     mkdir -p "${DEST_ICONE}"
-    cp "assets/icon.png" "${DEST_ICONE}/icon.png"
+    cp "assets/Hive-RBMK-icone.png" "${DEST_ICONE}/Hive-RBMK-icone.png"
 fi
 
 echo "=== Installation du fichier .desktop pour que ton binaire finnise pas au chiotte==="
@@ -52,13 +52,13 @@ mkdir -p "${DEST_APPS}"
 #|---------------------------------------------------------|#
 #| Recherche du fichier .desktop dans le dossier "install/" |
 #|---------------------------------------------------------|#
-if [ -f "install/engram_hive.desktop" ]; then
-    cp "install/engram_hive.desktop" "${DEST_APPS}/engram_hive.desktop"
+if [ -f "install/Hive_RBMK_Tcherenkov.desktop" ]; then
+    cp "install/Hive_RBMK_Tcherenkov.desktop" "${DEST_APPS}/Hive_RBMK_Tcherenkov.desktop"
     # Icône : chemin ABSOLU vers le fichier installé (le lanceur ne résout pas
     # un nom thémé puisqu'on n'installe pas dans un thème d'icônes).
-    sed -i "s|^Icon=.*|Icon=${DEST_ICONE}/icon.png|" "${DEST_APPS}/engram_hive.desktop"
+    sed -i "s|^Icon=.*|Icon=${DEST_ICONE}/Hive-RBMK-icone.png|" "${DEST_APPS}/Hive_RBMK_Tcherenkov.desktop"
 else
-    echo "Attention : Fichier install/engram_hive.desktop introuvable, étape ignorée. Enfin comme quand ta meuf/ton mec/ta mère/dieu te demande de sortir les poubelles  " >&2
+    echo "Attention : Fichier install/Hive_RBMK_Tcherenkov.desktop introuvable, étape ignorée. Enfin comme quand ta meuf/ton mec/ta mère/dieu te demande de sortir les poubelles  " >&2
 fi
 
 echo " Mise a jour de la DB des apps . Promis je dirais rien sur 'PornHub_Premium.desktop'."
@@ -77,7 +77,7 @@ echo "  [OK] Dossier target incinérer... j'aime l'odeur du Napalm au petit mati
 # ================================================================
 echo -e "\nInstallation terminée.En principe, on sait jamais , peut etre que je fou une backdoor pour profiter de ton abonnement premium sur pornhub. Ben oui on lit un .sh avant de le lancer ,hygienne numérique"
 echo "  Binaire : ${DEST_BIN}/${BINAIRE}"
-echo "  Lanceur : ${DEST_APPS}/engram_hive.desktop"
+echo "  Lanceur : ${DEST_APPS}/Hive_RBMK_Tcherenkov.desktop"
 
 # Vérification dynamique du PATH
 if [[ ":$PATH:" != *":${DEST_BIN}:"* ]]; then
@@ -85,4 +85,4 @@ if [[ ":$PATH:" != *":${DEST_BIN}:"* ]]; then
     echo "  export PATH=\"\${HOME}/.local/bin:\${PATH}\""
 fi
 
-echo -e "\nPour démarrer avec le système : ajoutez engram_hive aux applications au démarrage de votre environnement (KDE, GNOME (vous n'avez aucun gout), etc.)."
+echo -e "\nPour démarrer avec le système : ajoutez Hive_RBMK_Tcherenkov aux applications au démarrage de votre environnement (KDE, GNOME (vous n'avez aucun gout), etc.)."

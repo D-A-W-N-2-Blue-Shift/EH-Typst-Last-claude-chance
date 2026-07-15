@@ -1,0 +1,80 @@
+// ============================================================================
+// Hive_RBMK.ron — LE fichier de configuration unique de Hive_RBMK_Tcherenkov.
+//
+// Écrit dans ~/.config/hive_rbmk_tcherenkov/Hive_RBMK.ron au premier
+// lancement. Une section par domaine ; retire une section pour revenir à ses
+// valeurs par défaut. Syntaxe RON. Toute section illisible est signalée au
+// démarrage et remplacée par ses défauts — jamais de crash de config.
+// ============================================================================
+{
+    "modules": Modules(
+        enabled: [
+            "nexus_hub",
+            "health",
+            "journal",
+            "todo",
+            "dashboard",
+            "articles",
+            "cockpit_nexus",
+        ],
+    ),
+
+    "theme": Theme(
+        background: "#000000",
+        foreground: "#FF00FF",
+        accent_primary: "#FF00FF",
+        accent_secondary: "#7B00FF",
+        font_editor: "Georgia",
+        font_size: 16,
+        font_ui: "FiraSans",
+        font_ui_size: 13,
+        cursor: "#FF00FF",
+        border_color: "#7B00FF",
+        border_width: 2,
+    ),
+
+    "theme_expert": ThemeExpert(
+        selection_background: "#FFD700",
+        selection_foreground: "#000000",
+        bold_color: "#9B59B6",
+        italic_color: "#FF55FF",
+        highlight_background: "#FF8C00",
+        highlight_foreground: "#000000",
+        heading_h1: "#FF00FF",
+        heading_h2: "#CC00FF",
+        heading_h3: "#9900FF",
+        heading_h4: "#6600FF",
+        heading_h5: "#3300FF",
+        heading_h6: "#7B00FF",
+        wikilink_valid: "#FF00FF",
+        wikilink_orphan: "#FF4444",
+        wikilink_bracket_opacity: 10,
+        border_glow: true,
+        border_width: 2,
+        border_color: "#7B00FF",
+    ),
+
+    // Gabarit de création d'une entrée de journal. {date} → YYYY-MM-DD.
+    "journal": (
+        template: "---\ntags: []\n---\n\n= {date}\n\n",
+    ),
+
+    // Fenêtres temporelles et seuils d'alerte du dashboard.
+    "dashboard": (
+        default_sleep_window_days: 30,
+        mood_alert_threshold: 2.0,
+        mood_alert_consecutive_days: 3,
+        blocked_days_threshold: 7,
+    ),
+
+    // Filtres par défaut du kanban à l'ouverture.
+    "todo": (
+        default_filter_maintenant: false,
+        default_filter_contexte: "",
+    ),
+
+    // Rappel de ressenti différé (3h après une prise) : false pour couper.
+    "health": (
+        ressenti_prompt_enabled: true,
+    ),
+}

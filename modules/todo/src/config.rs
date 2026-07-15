@@ -1,5 +1,5 @@
 // ============================================================================
-// modules/todo/src/config.rs — Section "todo" de engram.ron
+// modules/todo/src/config.rs — Section "todo" de Hive_RBMK.ron
 //
 // Doc §5.7 : « config todo (colonnes, filtres par défaut) ». Seuls les
 // FILTRES sont exposés ici. Les colonnes restent fixes, volontairement non

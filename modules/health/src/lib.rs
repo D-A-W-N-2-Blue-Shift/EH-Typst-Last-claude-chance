@@ -1,11 +1,17 @@
 // ============================================================================
 // modules/health/src/lib.rs — Point d'entrée du module Santé
 //
-// Ce que je fais : sous-vues Sommeil et État psy (doc §5.3). Formulaires
-// minimaux (boutons radio 1-5, pas de slider — friction minimale), écriture
-// dans nexus.db, affichage immédiat des moyennes glissantes (28 jours pour
-// le sommeil, 7 jours pour l'état psy), recalculées depuis la DB à chaque
-// saisie, jamais stockées en dur.
+// Ce que je fais : les 4 sous-vues Santé — Sommeil, État psy, Médication
+// (doc §5.3), et Notes santé libres (doc §3, fichier `notes_sante.typst`,
+// jusqu'ici scaffoldé vide par le hub mais jamais lu/écrit par personne).
+// Formulaires minimaux (boutons radio 1-5, pas de slider — friction
+// minimale), écriture dans nexus.db, affichage immédiat des moyennes
+// glissantes (28 jours pour le sommeil, 7 jours pour l'état psy),
+// recalculées depuis la DB à chaque saisie, jamais stockées en dur. Le
+// rappel de ressenti différé (3h post-prise) est activable/désactivable
+// (doc §5.3 : « configurable off ») via la section "health" de Hive_RBMK.ron
+// (config.rs) — le délai de 3h lui-même reste fixe, le doc ne donnant qu'un
+// point de config (on/off), pas une plage (§A2, pas de donnée inventée).
 //
 // Comment je marche : OwnViewport (comme cockpit côté écrivain), fenêtre à
 // la demande (fermée par défaut — doctrine "on n'impose rien au tiling").
@@ -22,8 +28,10 @@
 // données), chrono (date/heure des saisies — déjà dépendance du workspace).
 // ============================================================================
 
+mod config;
 mod medication;
 mod mood;
+mod notes;
 mod sleep;
 
 use std::path::PathBuf;
@@ -44,6 +52,7 @@ enum Tab {
     Sleep,
     Mood,
     Medication,
+    Notes,
 }
 
 pub struct HealthModule {
@@ -56,6 +65,8 @@ pub struct HealthModule {
     sleep_form: sleep::SleepForm,
     mood_form: mood::MoodForm,
     medication_form: medication::MedicationForm,
+    notes_state: notes::NotesState,
+    cfg: config::HealthConfig,
     /// Popup « Prise » ouvert pour un médicament donné (timestamp éditable
     /// + dose modifiable — distinct de Redrop, doc §5.3 vs §6).
     dose_dialog: Option<medication::DoseForm>,
@@ -73,6 +84,8 @@ impl Default for HealthModule {
             sleep_form: sleep::SleepForm::default(),
             mood_form: mood::MoodForm::default(),
             medication_form: medication::MedicationForm::default(),
+            notes_state: notes::NotesState::default(),
+            cfg: config::HealthConfig::default(),
             dose_dialog: None,
             glados: Vec::new(),
             pending: Vec::new(),
@@ -102,6 +115,7 @@ impl HealthModule {
     /// nouveau projet, s'il y en a un.
     fn set_project_root(&mut self, root: Option<PathBuf>) {
         self.db = None;
+        self.notes_state = notes::NotesState::default();
         self.project_root = root.clone();
         let Some(root) = root else { return };
         let db_path = root.join(".engram").join("nexus.db");
@@ -168,6 +182,12 @@ impl HealthModule {
                 {
                     self.tab = Tab::Medication;
                 }
+                if ui
+                    .selectable_label(self.tab == Tab::Notes, "📝 Notes santé")
+                    .clicked()
+                {
+                    self.tab = Tab::Notes;
+                }
             });
             ui.separator();
 
@@ -175,6 +195,7 @@ impl HealthModule {
                 Tab::Sleep => self.draw_sleep(ui, &db),
                 Tab::Mood => self.draw_mood(ui, &db),
                 Tab::Medication => self.draw_medication(ui, &db),
+                Tab::Notes => self.draw_notes(ui, &db),
             }
             self.db = Some(db);
         });
@@ -424,7 +445,8 @@ impl HealthModule {
                 ui.weak(format!("Historique 7 jours : {} prise(s).", week.len()));
 
                 for d in &week {
-                    if medication::needs_ressenti_prompt(d, now) {
+                    if self.cfg.ressenti_prompt_enabled && medication::needs_ressenti_prompt(d, now)
+                    {
                         ui.horizontal(|ui| {
                             ui.weak(format!("Ressenti pour la prise de {} :", d.taken_at));
                             for v in 1..=5u8 {
@@ -523,6 +545,62 @@ impl HealthModule {
             self.glados("Impossible d'enregistrer le ressenti.", e.to_string());
         }
     }
+
+    /// Doc §3 : `02_sante/notes_sante.typst`, observations libres. Scaffoldé
+    /// vide par le hub à la création du projet, mais jusqu'ici jamais lu ni
+    /// écrit par aucun module — cette sous-vue ferme ce trou.
+    fn draw_notes(&mut self, ui: &mut egui::Ui, db: &nexus_db::Connection) {
+        let Some(root) = self.project_root.clone() else {
+            ui.weak("Aucun projet ouvert.");
+            return;
+        };
+        if !self.notes_state.loaded {
+            match notes::load(&root) {
+                Ok(content) => self.notes_state.content = content,
+                Err(e) => self.glados("Lecture des notes santé impossible.", e),
+            }
+            self.notes_state.loaded = true;
+        }
+        ui.heading("Notes santé");
+        ui.weak("Observations libres (02_sante/notes_sante.typst) — aucune structure imposée.");
+        ui.add_space(6.0);
+        egui::ScrollArea::vertical()
+            .max_height(360.0)
+            .show(ui, |ui| {
+                let resp = ui.add(
+                    egui::TextEdit::multiline(&mut self.notes_state.content)
+                        .desired_rows(18)
+                        .desired_width(f32::INFINITY),
+                );
+                if resp.changed() {
+                    self.notes_state.dirty = true;
+                }
+            });
+        ui.add_space(6.0);
+        ui.horizontal(|ui| {
+            if ui.button("Enregistrer").clicked() {
+                match notes::save(&root, &self.notes_state.content) {
+                    Ok(()) => {
+                        self.notes_state.dirty = false;
+                        if let Err(e) =
+                            nexus_db::fts_upsert(db, notes::FTS_KEY, &self.notes_state.content)
+                        {
+                            self.glados(
+                                "Impossible d'indexer les notes santé pour la recherche.",
+                                e.to_string(),
+                            );
+                        }
+                    }
+                    Err(e) => self.glados("Impossible d'enregistrer les notes santé.", e),
+                }
+            }
+            if self.notes_state.dirty {
+                ui.weak("Modifications non enregistrées.");
+            } else {
+                ui.colored_label(egui::Color32::from_rgb(120, 255, 180), "✓ Enregistré");
+            }
+        });
+    }
 }
 
 impl Module for HealthModule {
@@ -530,7 +608,15 @@ impl Module for HealthModule {
         "health"
     }
 
-    fn init(&mut self, _ctx: &CoreContext) -> Result<(), String> {
+    fn init(&mut self, ctx: &CoreContext) -> Result<(), String> {
+        let mut errors = Vec::new();
+        self.cfg = ctx.licorne.section("health", &mut errors);
+        for e in errors {
+            self.glados(
+                "Configuration 'health' invalide : valeurs par défaut utilisées.",
+                e,
+            );
+        }
         Ok(())
     }
 

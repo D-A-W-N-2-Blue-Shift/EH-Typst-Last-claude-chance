@@ -1,10 +1,14 @@
 # ============================================================================
-# app_nexus/Cargo.toml — Le binaire nexus (Hive-RBMK-mod-Tcherenkov)
+# app_nexus/Cargo.toml — Le binaire Hive_RBMK_Tcherenkov
 #
 # Seul point de couplage nommant les modules Nexus (§7.1 de la doctrine).
 # Construit son propre CoreContext (dossier hive_rbmk_tcherenkov, distinct
 # d'engram_hive_typst) : engram_core n'est PAS modifié, l'app écrivain
 # (app/) n'est PAS touchée. Même core, domaine différent.
+#
+# Le binaire porte le nom complet du projet (pas « nexus », générique et
+# collisionnable) : aucun artefact produit ne peut être confondu avec ceux
+# d'Engram_Hive ni avec un outil tiers homonyme.
 # ============================================================================
 
 [package]
@@ -13,7 +17,7 @@ version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "nexus"
+name = "Hive_RBMK_Tcherenkov"
 path = "src/main.rs"
 
 [dependencies]
@@ -32,3 +36,4 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 dirs = { workspace = true }
 chrono = { workspace = true }
+image = { workspace = true }

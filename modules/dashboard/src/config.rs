@@ -1,5 +1,5 @@
 // ============================================================================
-// modules/dashboard/src/config.rs — Section "dashboard" de engram.ron
+// modules/dashboard/src/config.rs — Section "dashboard" de Hive_RBMK.ron
 //
 // Sous-ensemble volontairement restreint des « fenêtres temporelles » et
 // « seuils d'alerte » du doc §5.7 : seuls les seuils RÉELLEMENT branchés sur
@@ -50,7 +50,7 @@ mod tests {
     fn defaut_identique_au_comportement_precedemment_code_en_dur() {
         // Ces valeurs étaient des littéraux avant cet incrément (sessions
         // 6/7, doc §10) — zéro régression pour un projet sans section
-        // "dashboard" dans engram.ron.
+        // "dashboard" dans Hive_RBMK.ron.
         let cfg = DashboardConfig::default();
         assert_eq!(cfg.default_sleep_window_days, 30);
         assert_eq!(cfg.mood_alert_threshold, 2.0);

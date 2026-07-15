@@ -15,6 +15,7 @@
 // module — un CoreEvent global déclenché depuis n'importe où »).
 // ============================================================================
 
+mod assets;
 mod palette;
 mod redrop;
 
@@ -104,11 +105,18 @@ fn main() {
         palette: palette::PaletteState::default(),
         redrop: redrop::RedropState::default(),
         restart_requested: false,
+        bg_texture: None,
+        bg_tried: false,
     };
 
-    let viewport = egui::ViewportBuilder::default()
+    let mut viewport = egui::ViewportBuilder::default()
         .with_title(format!("{APP_TITLE} — Core"))
         .with_inner_size([641.0, 641.0]);
+    // Icône embarquée (assets/Hive-RBMK-icone.png). Absente du décodage ⇒
+    // icône système, jamais de panique (voir assets.rs).
+    if let Some(icon) = assets::load_icon() {
+        viewport = viewport.with_icon(icon);
+    }
     let options = eframe::NativeOptions {
         viewport,
         ..Default::default()
@@ -145,6 +153,10 @@ struct NexusApp {
     /// Posé par ModuleResponse::RestartApp (cockpit_nexus), consommé dans
     /// `update` qui a le `Context` egui nécessaire à `restart_now`.
     restart_requested: bool,
+    /// Texture du fond du core (assets/Hive-RBMK-bck_core.png), chargée une
+    /// seule fois à la première frame. None ⇒ pas de fond (asset illisible).
+    bg_texture: Option<egui::TextureHandle>,
+    bg_tried: bool,
 }
 
 impl NexusApp {
@@ -311,11 +323,33 @@ impl eframe::App for NexusApp {
             module.update(ctx, &mut responses);
         }
 
+        // Texture de fond chargée une seule fois (même mécanisme que l'app
+        // écrivain archivée : absente/illisible ⇒ pas de fond, jamais de
+        // panique).
+        if !self.bg_tried {
+            self.bg_tried = true;
+            if let Some(img) = assets::load_core_background() {
+                self.bg_texture =
+                    Some(ctx.load_texture("core_bg", img, egui::TextureOptions::LINEAR));
+            }
+        }
+
         egui::TopBottomPanel::top("nexus_core_hub")
             .resizable(true)
             .default_height(100.0)
             .min_height(48.0)
             .show(ctx, |ui| {
+                if let Some(tex) = &self.bg_texture {
+                    // Filigrane discret : le contenu (statut, erreurs) reste
+                    // parfaitement lisible par-dessus.
+                    let tint = egui::Color32::from_rgba_unmultiplied(255, 255, 255, 13);
+                    ui.painter().image(
+                        tex.id(),
+                        ui.max_rect(),
+                        egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                        tint,
+                    );
+                }
                 ui.heading(APP_TITLE);
                 ui.weak(format!("Core actif — {} module(s)", self.modules.len()));
                 ui.separator();

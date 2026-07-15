@@ -9,7 +9,7 @@ son état (tables présentes / attendues).
 
 ## Comment je marche
 - `EmbeddedInCore` (comme `file_tree` côté écrivain) : pas de fenêtre OS
-  propre, je me dessine dans un panel fourni par le binaire `nexus`.
+  propre, je me dessine dans un panel fourni par le binaire `Hive_RBMK_Tcherenkov`.
 - Je ne parle au core QUE via `ModuleResponse` (erreurs remontées en
   `ModuleResponse::Error`, jamais silencieuses — règle GLaDOS).
 - Le chemin du projet se saisit au clavier (champ texte), pas de sélecteur

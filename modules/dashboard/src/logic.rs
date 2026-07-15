@@ -148,7 +148,7 @@ pub fn daily_trend(
 /// Dimensions sous `threshold` pendant `consecutive_days` jours consécutifs
 /// jusqu'à `as_of` (doc §5.6 : « alerte visuelle si une dimension < 2 sur 3
 /// jours consécutifs » — seuil et fenêtre configurables, doc §5.7, section
-/// "dashboard" de engram.ron, valeurs par défaut 2.0/3 identiques au
+/// "dashboard" de Hive_RBMK.ron, valeurs par défaut 2.0/3 identiques au
 /// comportement précédemment codé en dur). Nécessite une saisie chaque jour
 /// de la fenêtre : un jour manquant casse la séquence (aucune extrapolation).
 pub fn low_dimension_alerts(

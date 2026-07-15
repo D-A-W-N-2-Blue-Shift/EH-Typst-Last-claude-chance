@@ -1,9 +1,10 @@
 // ============================================================================
-// core/src/licorne.rs — Configuration experte UNIFIÉE (engram.ron)
+// core/src/licorne.rs — Configuration UNIFIÉE (Hive_RBMK.ron)
 //
-// Un seul fichier ~/.config/engram_hive/engram.ron est la cible EH5.
-// Il regroupe TOUTES les options avancées de tous les modules, une SECTION
-// par module, plus les sections globales basic/deep/modules/providers :
+// Un seul fichier ~/.config/hive_rbmk_tcherenkov/Hive_RBMK.ron est LA
+// configuration de l'application — demande explicite de l'architecte :
+// « un seul et unique fichier de configuration ron ». Il regroupe TOUTES
+// les options, une SECTION par module, plus les sections globales :
 //
 //   {
 //       "basic": (...),
@@ -35,10 +36,13 @@ use std::path::Path;
 use crate::atomic_write;
 use serde::de::DeserializeOwned;
 
-/// Nom du fichier unifié cible dans ~/.config/engram_hive/.
-pub const ENGRAM_FILE: &str = "engram.ron";
-/// Modèle commenté écrit au premier lancement si `engram.ron` manque.
-const DEFAULT_ENGRAM_RON: &str = include_str!("../../config/engram.ron");
+/// Nom du fichier de configuration unique dans le dossier de config.
+pub const CONFIG_FILE: &str = "Hive_RBMK.ron";
+/// Ancien nom (héritage Engram) : migré automatiquement au premier
+/// lancement post-renommage pour ne perdre AUCUN réglage existant.
+const LEGACY_CONFIG_FILE: &str = "engram.ron";
+/// Modèle commenté écrit au premier lancement si `Hive_RBMK.ron` manque.
+const DEFAULT_CONFIG_RON: &str = include_str!("../../config/Hive_RBMK.ron");
 
 /// Sections expertes parsées, indexées par nom de module.
 #[derive(Debug, Clone, Default)]
@@ -47,14 +51,32 @@ pub struct Licorne {
 }
 
 impl Licorne {
-    /// Charge `engram.ron` depuis le dossier de config. Absent ⇒ le fichier
-    /// est créé avec le modèle commenté du dépôt. Retourne (config, erreurs
-    /// GLaDOS à loguer/afficher).
+    /// Charge `Hive_RBMK.ron` depuis le dossier de config. Absent ⇒ un
+    /// éventuel `engram.ron` hérité est migré (renommé) pour préserver les
+    /// réglages existants, sinon le fichier est créé avec le modèle commenté
+    /// du dépôt. Retourne (config, erreurs GLaDOS à loguer/afficher).
     pub fn load(config_dir: &Path) -> (Self, Vec<String>) {
         let mut errors = Vec::new();
-        let path = config_dir.join(ENGRAM_FILE);
+        let path = config_dir.join(CONFIG_FILE);
         if !path.exists() {
-            if let Err(e) = atomic_write(&path, DEFAULT_ENGRAM_RON.as_bytes()) {
+            let legacy = config_dir.join(LEGACY_CONFIG_FILE);
+            if legacy.exists() {
+                match std::fs::rename(&legacy, &path) {
+                    Ok(()) => errors.push(format!(
+                        "Config migrée : {} → {} (réglages conservés).",
+                        legacy.display(),
+                        path.display()
+                    )),
+                    Err(e) => errors.push(format!(
+                        "Migration de {} impossible ({e}) : je repars du modèle \
+                         par défaut, tes anciens réglages restent dans ce fichier.",
+                        legacy.display()
+                    )),
+                }
+            }
+        }
+        if !path.exists() {
+            if let Err(e) = atomic_write(&path, DEFAULT_CONFIG_RON.as_bytes()) {
                 errors.push(format!(
                     "Impossible de créer {} : {e}. Je repars sur tous les défauts.",
                     path.display()
@@ -102,7 +124,7 @@ impl Licorne {
                 errors.push(format!(
                     "Section '{name}' de {} illisible ({e}). Valeurs par défaut \
                      pour ce module.",
-                    ENGRAM_FILE
+                    CONFIG_FILE
                 ));
                 T::default()
             }
@@ -124,7 +146,7 @@ mod tests {
     }
 
     fn write_licorne(dir: &Path, body: &str) -> std::io::Result<()> {
-        crate::atomic_write(&dir.join(ENGRAM_FILE), body.as_bytes()).map_err(std::io::Error::other)
+        crate::atomic_write(&dir.join(CONFIG_FILE), body.as_bytes()).map_err(std::io::Error::other)
     }
 
     #[test]
