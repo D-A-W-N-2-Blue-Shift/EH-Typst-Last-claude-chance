@@ -3,7 +3,8 @@
 //
 // Ce que je fais : éditeur de prose pour les articles (doc §5.5). Contrairement
 // au journal, pas de concept "aujourd'hui" — une liste d'articles existants
-// (04_articles/*.typst, indexés dans la table `articles`) + création d'un
+// (04_articles/*.md — les .typst hérités restent ouvrables tels quels,
+// indexés dans la table `articles`) + création d'un
 // nouvel article depuis un titre (slug généré, désambiguïsé si collision,
 // fichier + frontmatter créés, doc §3/§5.5). Frontmatter à 5 champs édité par
 // formulaire (titre/statut/tags/date_cible/destination), corps en zone de
@@ -212,7 +213,8 @@ impl ArticlesModule {
         let base_slug = entry::slugify(&titre);
         let mut slug = base_slug.clone();
         let mut n = 2;
-        while entry::path_for(root, &slug).exists() {
+        while entry::path_for(root, &slug).exists() || entry::legacy_path_for(root, &slug).exists()
+        {
             slug = format!("{base_slug}_{n}");
             n += 1;
         }
@@ -324,6 +326,57 @@ impl ArticlesModule {
         }
     }
 
+    fn current_is_legacy_typst(&self) -> bool {
+        self.current_path
+            .as_deref()
+            .and_then(|p| p.extension())
+            .is_some_and(|e| e == "typst")
+    }
+
+    /// Brief Phase 6 — copie Markdown explicite d'un article Typst hérité.
+    /// Convertit le buffer courant, écrit `<slug>.md` + le rapport, bascule
+    /// l'édition sur la copie. L'original `.typst` n'est jamais réécrit.
+    fn create_md_copy(&mut self, db: &nexus_db::Connection) {
+        let Some(src) = self.current_path.clone() else {
+            return;
+        };
+        let dst = src.with_extension("md");
+        if dst.exists() {
+            self.glados(
+                format!("{} existe déjà — copie refusée.", dst.display()),
+                "pas d'écrasement de copie existante",
+            );
+            return;
+        }
+        let out = engram_core::typst_fallback::typst_to_md_safe(&self.content);
+        if let Err(e) = engram_core::atomic_write(&dst, out.markdown.as_bytes()) {
+            self.glados(format!("Impossible de créer {}.", dst.display()), e);
+            return;
+        }
+        let report_path = src.with_extension("typ-to-md-report.md");
+        let report = engram_core::typst_fallback::conversion_report(
+            &src.file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            &dst.file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            &out,
+        );
+        if let Err(e) = engram_core::atomic_write(&report_path, report.as_bytes()) {
+            self.glados(
+                format!(
+                    "Copie créée mais rapport impossible ({}).",
+                    report_path.display()
+                ),
+                e,
+            );
+        }
+        self.content = out.markdown;
+        self.current_path = Some(dst);
+        self.save_current(db);
+    }
+
     fn draw_editor(&mut self, ui: &mut egui::Ui, db: &nexus_db::Connection) {
         let mut back_to_list = false;
         ui.horizontal(|ui| {
@@ -337,6 +390,21 @@ impl ArticlesModule {
                     .unwrap_or_default(),
             );
         });
+        if self.current_is_legacy_typst() {
+            ui.horizontal_wrapped(|ui| {
+                ui.weak("Typst — secondaire.");
+                if ui
+                    .button("Créer une copie Markdown")
+                    .on_hover_text(
+                        "Crée une copie .md convertie (structures sûres uniquement) + \
+                         un rapport. L'original .typst n'est JAMAIS modifié.",
+                    )
+                    .clicked()
+                {
+                    self.create_md_copy(db);
+                }
+            });
+        }
         if back_to_list {
             self.save_current(db);
             self.loaded = false;
@@ -491,9 +559,7 @@ mod tests {
         assert_eq!(m.meta.titre, "Le Burnout Autistique");
         let articles = nexus_db::list_articles(&db).expect("list");
         assert_eq!(articles.len(), 1);
-        assert!(articles[0]
-            .file_path
-            .ends_with("le_burnout_autistique.typst"));
+        assert!(articles[0].file_path.ends_with("le_burnout_autistique.md"));
     }
 
     #[test]
@@ -515,6 +581,78 @@ mod tests {
     }
 
     #[test]
+    fn copie_markdown_explicite_preserve_larticle_typst_herite() {
+        let dir = tempfile::tempdir().expect("tmp");
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("04_articles")).expect("mkdir");
+        let legacy = root.join("04_articles").join("ancien.typst");
+        let original =
+            "---\ntitre: \"Ancien\"\nstatut: brouillon\ntags: []\ndate_cible: \"\"\ndestination: \"\"\n---\n\n= Ancien\n\nProse héritée.\n";
+        std::fs::write(&legacy, original).expect("write");
+        let db = nexus_db::open_in_memory().expect("db");
+        // L'article hérité a sa ligne d'index (comme tout article réellement
+        // sauvé avant le fallback).
+        nexus_db::upsert_article(
+            &db,
+            &nexus_db::Article {
+                id: nexus_db::new_id(),
+                file_path: "04_articles/ancien.typst".into(),
+                titre: "Ancien".into(),
+                statut: "brouillon".into(),
+                tags: Vec::new(),
+                date_cible: String::new(),
+                destination: String::new(),
+                word_count: 2,
+                updated_at: "2026-07-01T00:00:00".into(),
+            },
+        )
+        .expect("seed");
+        let mut m = ArticlesModule {
+            project_root: Some(root.to_path_buf()),
+            ..ArticlesModule::default()
+        };
+        m.open_existing(&db, root, "04_articles/ancien.typst");
+        m.create_md_copy(&db);
+        // Original intact à l'octet près.
+        assert_eq!(std::fs::read_to_string(&legacy).expect("read"), original);
+        // Copie convertie + rapport + bascule d'édition.
+        let md = std::fs::read_to_string(root.join("04_articles/ancien.md")).expect("copie");
+        assert!(md.contains("# Ancien"));
+        assert!(legacy.with_extension("typ-to-md-report.md").is_file());
+        assert!(m
+            .current_path
+            .as_ref()
+            .expect("chemin")
+            .ends_with("ancien.md"));
+        // Les DEUX articles coexistent dans l'index (l'utilisateur décide).
+        assert_eq!(nexus_db::list_articles(&db).expect("list").len(), 2);
+    }
+
+    #[test]
+    fn create_new_ne_prend_jamais_le_nom_dun_typst_herite() {
+        let dir = tempfile::tempdir().expect("tmp");
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("04_articles")).expect("mkdir");
+        // Article Typst hérité d'avant le fallback.
+        let legacy = root.join("04_articles").join("repos.typst");
+        std::fs::write(&legacy, "= Repos\n\nContenu hérité.").expect("write");
+        let db = nexus_db::open_in_memory().expect("db");
+        let mut m = ArticlesModule::default();
+        m.new_title_input = "Repos".to_string();
+        m.create_new(&db, root);
+        // Le nouveau .md est désambiguïsé, l'hérité est INTACT.
+        assert!(m
+            .current_path
+            .as_ref()
+            .expect("créé")
+            .ends_with("repos_2.md"));
+        assert_eq!(
+            std::fs::read_to_string(&legacy).expect("read"),
+            "= Repos\n\nContenu hérité."
+        );
+    }
+
+    #[test]
     fn save_current_synchronise_word_count() {
         let dir = tempfile::tempdir().expect("tmp");
         let root = dir.path();
@@ -524,7 +662,7 @@ mod tests {
         m.new_title_input = "Test".to_string();
         m.create_new(&db, root);
         // Corps remplacé explicitement (plutôt qu'ajouté au template par
-        // défaut, dont la ligne de titre "= Test" contribue elle-même 2
+        // défaut, dont la ligne de titre "# Test" contribue elle-même 2
         // tokens au comptage — même comportement que journal, non testé
         // comme un cas séparé là-bas ; ici le corps est contrôlé pour que
         // l'assertion soit sans ambiguïté).
@@ -550,7 +688,7 @@ mod tests {
         m.save_current(&db);
         let hits = nexus_db::fts_search(&db, "brouillard", 10).expect("search");
         assert_eq!(hits.len(), 1);
-        assert!(hits[0].file_path.ends_with("brouillard_cognitif.typst"));
+        assert!(hits[0].file_path.ends_with("brouillard_cognitif.md"));
         // Le frontmatter n'est PAS indexé, seul le corps l'est : "statut"
         // n'apparaît que dans le frontmatter de cet article.
         assert!(nexus_db::fts_search(&db, "brouillon", 10)

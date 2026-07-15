@@ -2,7 +2,7 @@
 // modules/health/src/lib.rs — Point d'entrée du module Santé
 //
 // Ce que je fais : les 4 sous-vues Santé — Sommeil, État psy, Médication
-// (doc §5.3), et Notes santé libres (doc §3, fichier `notes_sante.typst`,
+// (doc §5.3), et Notes santé libres (doc §3, fichier `notes_sante.md` —
 // jusqu'ici scaffoldé vide par le hub mais jamais lu/écrit par personne).
 // Formulaires minimaux (boutons radio 1-5, pas de slider — friction
 // minimale), écriture dans nexus.db, affichage immédiat des moyennes
@@ -546,7 +546,7 @@ impl HealthModule {
         }
     }
 
-    /// Doc §3 : `02_sante/notes_sante.typst`, observations libres. Scaffoldé
+    /// Doc §3 : `02_sante/notes_sante.md` (`.typst` hérité respecté), observations libres. Scaffoldé
     /// vide par le hub à la création du projet, mais jusqu'ici jamais lu ni
     /// écrit par aucun module — cette sous-vue ferme ce trou.
     fn draw_notes(&mut self, ui: &mut egui::Ui, db: &nexus_db::Connection) {
@@ -562,7 +562,45 @@ impl HealthModule {
             self.notes_state.loaded = true;
         }
         ui.heading("Notes santé");
-        ui.weak("Observations libres (02_sante/notes_sante.typst) — aucune structure imposée.");
+        ui.weak("Observations libres (02_sante/notes_sante.md) — aucune structure imposée.");
+        if notes::is_legacy(&root) {
+            ui.horizontal_wrapped(|ui| {
+                ui.weak("Typst — secondaire.");
+                if ui
+                    .button("Créer une copie Markdown")
+                    .on_hover_text(
+                        "Crée notes_sante.md convertie (structures sûres uniquement) + \
+                         un rapport. L'original .typst n'est JAMAIS modifié.",
+                    )
+                    .clicked()
+                {
+                    match notes::create_md_copy(&root, &self.notes_state.content) {
+                        Ok(dst) => {
+                            // file_path() résout désormais sur le .md : on
+                            // recharge depuis la copie et on indexe.
+                            self.notes_state.dirty = false;
+                            let key = notes::fts_key(&root);
+                            match std::fs::read_to_string(&dst) {
+                                Ok(c) => self.notes_state.content = c,
+                                Err(e) => self.glados(
+                                    "Copie créée mais relecture impossible.",
+                                    e.to_string(),
+                                ),
+                            }
+                            if let Err(e) =
+                                nexus_db::fts_upsert(db, &key, &self.notes_state.content)
+                            {
+                                self.glados(
+                                    "Copie créée mais indexation impossible.",
+                                    e.to_string(),
+                                );
+                            }
+                        }
+                        Err(e) => self.glados("Copie Markdown impossible.", e),
+                    }
+                }
+            });
+        }
         ui.add_space(6.0);
         egui::ScrollArea::vertical()
             .max_height(360.0)
@@ -582,9 +620,8 @@ impl HealthModule {
                 match notes::save(&root, &self.notes_state.content) {
                     Ok(()) => {
                         self.notes_state.dirty = false;
-                        if let Err(e) =
-                            nexus_db::fts_upsert(db, notes::FTS_KEY, &self.notes_state.content)
-                        {
+                        let key = notes::fts_key(&root);
+                        if let Err(e) = nexus_db::fts_upsert(db, &key, &self.notes_state.content) {
                             self.glados(
                                 "Impossible d'indexer les notes santé pour la recherche.",
                                 e.to_string(),

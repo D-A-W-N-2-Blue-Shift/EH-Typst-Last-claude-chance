@@ -1,7 +1,8 @@
 // ============================================================================
 // modules/articles/src/entry.rs — Logique pure d'un article
 //
-// Fichier canonique 04_articles/<slug>.typst (doc §3). Frontmatter à 5 champs
+// Fichier canonique 04_articles/<slug>.md (Markdown-first, brief 15/07/2026 ;
+// les .typst hérités restent lus tels quels). Frontmatter à 5 champs
 // (doc §5.5) : titre, statut, tags, date_cible, destination. Même patron de
 // parsing manuel que journal/src/entry.rs (§7.4 : pas de serde_yaml pour un
 // format interne restreint et contrôlé — journal a établi ce choix pour 1
@@ -79,18 +80,27 @@ fn strip_accent(c: char) -> char {
     }
 }
 
-/// Chemin du fichier d'un article pour un `slug` donné (doc §3 :
-/// `04_articles/slug_titre.typst`). L'appelant est responsable de
-/// désambiguïser `slug` si le fichier existe déjà — cette fonction reste
-/// pure, sans accès disque au-delà de la construction du chemin.
+/// Chemin de CRÉATION d'un article pour un `slug` donné (Markdown-first,
+/// brief 15/07/2026 : `04_articles/slug_titre.md`). Les `.typst` hérités
+/// s'ouvrent inchangés via leur chemin stocké en DB (agnostique). L'appelant
+/// est responsable de désambiguïser `slug` si le fichier existe déjà —
+/// cette fonction reste pure, sans accès disque.
 pub fn path_for(root: &Path, slug: &str) -> PathBuf {
+    root.join("04_articles").join(format!("{slug}.md"))
+}
+
+/// Chemin hérité (.typst) d'un slug — plus jamais créé ; sert uniquement à
+/// la désambiguïsation (un nouvel article ne doit pas prendre le nom d'un
+/// article Typst hérité, même si l'extension diffère).
+pub fn legacy_path_for(root: &Path, slug: &str) -> PathBuf {
     root.join("04_articles").join(format!("{slug}.typst"))
 }
 
-/// Contenu initial d'un nouvel article (doc §5.5, frontmatter exact).
+/// Contenu initial d'un nouvel article (doc §5.5, frontmatter exact ;
+/// corps Markdown).
 pub fn default_template(titre: &str) -> String {
     format!(
-        "---\ntitre: \"{titre}\"\nstatut: brouillon\ntags: []\ndate_cible: \"\"\ndestination: \"\"\n---\n\n= {titre}\n\n"
+        "---\ntitre: \"{titre}\"\nstatut: brouillon\ntags: []\ndate_cible: \"\"\ndestination: \"\"\n---\n\n# {titre}\n\n"
     )
 }
 
@@ -236,7 +246,7 @@ mod tests {
         let root = Path::new("/tmp/projet");
         assert_eq!(
             path_for(root, "burnout_autistique"),
-            PathBuf::from("/tmp/projet/04_articles/burnout_autistique.typst")
+            PathBuf::from("/tmp/projet/04_articles/burnout_autistique.md")
         );
     }
 

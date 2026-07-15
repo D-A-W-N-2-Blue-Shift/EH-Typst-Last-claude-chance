@@ -305,6 +305,7 @@ impl NexusHubModule {
                 ui.separator();
                 ui.add_space(6.0);
                 ui.heading("Fichiers");
+                ui.weak("Format principal : Markdown (.md). Typst : secondaire, hérité.");
                 egui::ScrollArea::vertical()
                     .max_height(240.0)
                     .id_salt("hub_tree")
@@ -415,11 +416,20 @@ fn draw_tree(ui: &mut egui::Ui, nodes: &[tree::TreeNode]) {
                 .show(ui, |ui| {
                     draw_tree(ui, &node.children);
                 });
-        } else if ui
-            .selectable_label(false, format!("📄 {}", node.name))
-            .clicked()
-        {
-            open_in_os(&node.path);
+        } else {
+            // Brief Phase 11 : le type de fichier est affiché sobrement —
+            // les `.typ(st)` hérités sont marqués « Typst — secondaire ».
+            let is_typst = std::path::Path::new(&node.name)
+                .extension()
+                .is_some_and(|e| e == "typst" || e == "typ");
+            let label = if is_typst {
+                format!("📄 {}  · Typst — secondaire", node.name)
+            } else {
+                format!("📄 {}", node.name)
+            };
+            if ui.selectable_label(false, label).clicked() {
+                open_in_os(&node.path);
+            }
         }
     }
 }
