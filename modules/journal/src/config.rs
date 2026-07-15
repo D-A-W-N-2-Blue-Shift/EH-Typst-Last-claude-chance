@@ -1,17 +1,17 @@
 // ============================================================================
-// modules/journal/src/config.rs — Section "journal" de engram.ron
+// modules/journal/src/config.rs — Section "journal" de Hive_RBMK.ron
 //
 // Un seul réglage exposé : le gabarit de création d'une nouvelle entrée (doc
 // §5.2 : « template configurable dans journal.ron » — différé à l'incrément 4,
 // voir README_MODULE.md « Écart documenté »). Fermé ici via le mécanisme
 // RÉEL déjà établi dans ce workspace (licorne.section, mêmes patrons que
 // modules/editor/src/config.rs et modules/cockpit) : la config Nexus vit en
-// sections nommées de engram.ron, pas dans un fichier séparé par module — le
+// sections nommées de Hive_RBMK.ron, pas dans un fichier séparé par module — le
 // doc nommait « journal.ron » de façon descriptive du besoin (un gabarit
 // configurable), pas d'un chemin de fichier littéral imposé.
 // ============================================================================
 
-/// Section `journal` de `engram.ron`.
+/// Section `journal` de `Hive_RBMK.ron`.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct JournalConfig {

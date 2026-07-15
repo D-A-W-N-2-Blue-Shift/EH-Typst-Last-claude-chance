@@ -9,7 +9,7 @@
 // glissantes (28 jours pour le sommeil, 7 jours pour l'état psy),
 // recalculées depuis la DB à chaque saisie, jamais stockées en dur. Le
 // rappel de ressenti différé (3h post-prise) est activable/désactivable
-// (doc §5.3 : « configurable off ») via la section "health" de engram.ron
+// (doc §5.3 : « configurable off ») via la section "health" de Hive_RBMK.ron
 // (config.rs) — le délai de 3h lui-même reste fixe, le doc ne donnant qu'un
 // point de config (on/off), pas une plage (§A2, pas de donnée inventée).
 //

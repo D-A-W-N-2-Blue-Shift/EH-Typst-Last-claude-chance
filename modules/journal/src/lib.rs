@@ -57,7 +57,7 @@ pub struct JournalModule {
     current_path: Option<PathBuf>,
     content: String,
     loaded: bool,
-    /// Gabarit de création (section "journal" de engram.ron, doc §5.2).
+    /// Gabarit de création (section "journal" de Hive_RBMK.ron, doc §5.2).
     /// Chargé une fois à `init()`, valeur par défaut tant qu'aucun projet
     /// n'a déclenché `init()` (ne peut pas arriver en pratique : le core
     /// appelle toujours `init()` avant `update()`).

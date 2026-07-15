@@ -6,7 +6,7 @@
 // structurelle »). Pas de courbe théorique : heure(s) de prise du jour +
 // historique 7 jours seulement. Ressenti différé : champ disponible 3h
 // après la prise, activable/désactivable via la section "health" de
-// engram.ron (config.rs) — doc §5.3 « configurable off ».
+// Hive_RBMK.ron (config.rs) — doc §5.3 « configurable off ».
 // ============================================================================
 
 use chrono::{NaiveDate, NaiveDateTime};

@@ -262,7 +262,7 @@ impl CockpitNexusModule {
             .show(ctx, |ui| {
                 ui.add_space(10.0);
                 ui.heading("Cockpit Nexus");
-                ui.weak("Source cible : engram.ron (Nexus)");
+                ui.weak("Source cible : Hive_RBMK.ron");
                 ui.add_space(10.0);
                 if ui
                     .button("🔄 Recharger depuis le disque")
@@ -334,15 +334,15 @@ impl CockpitNexusModule {
     }
 
     fn draw_overview(&mut self, ui: &mut egui::Ui, open_health: &mut bool) {
-        let engram = self.config_dir.join("engram.ron");
-        let engram_state = probe_ron_file(&engram, |raw| {
+        let cfg_file = self.config_dir.join(engram_core::licorne::CONFIG_FILE);
+        let cfg_state = probe_ron_file(&cfg_file, |raw| {
             ron::from_str::<std::collections::HashMap<String, ron::Value>>(raw)
                 .map(|_| ())
                 .map_err(|e| e.to_string())
         });
         ui.heading("Configuration Nexus");
         ui.weak(
-            "engram.ron (dossier de config `hive_rbmk_tcherenkov`) est la source unique. \
+            "Hive_RBMK.ron (dossier de config `hive_rbmk_tcherenkov`) est la source unique. \
              Les sections ci-dessous sont celles réellement lues par les modules Nexus.",
         );
         ui.add_space(6.0);
@@ -353,9 +353,9 @@ impl CockpitNexusModule {
                 self.draw_config_row(
                     ui,
                     "theme",
-                    &engram,
-                    "engram_core::theme → section theme de engram.ron",
-                    engram_state.clone(),
+                    &cfg_file,
+                    "engram_core::theme → section theme de Hive_RBMK.ron",
+                    cfg_state.clone(),
                     ReloadMode::Live,
                     |this| this.reload_theme_from_disk(),
                 );
@@ -363,9 +363,9 @@ impl CockpitNexusModule {
                 self.draw_config_row(
                     ui,
                     "theme_expert",
-                    &engram,
-                    "engram_core::theme → section theme_expert de engram.ron",
-                    engram_state.clone(),
+                    &cfg_file,
+                    "engram_core::theme → section theme_expert de Hive_RBMK.ron",
+                    cfg_state.clone(),
                     ReloadMode::RestartRequired,
                     |this| {
                         this.status
@@ -376,9 +376,9 @@ impl CockpitNexusModule {
                 self.draw_config_row(
                     ui,
                     "journal",
-                    &engram,
+                    &cfg_file,
                     "modules/journal/src/config.rs → gabarit de création (doc §5.2)",
-                    engram_state.clone(),
+                    cfg_state.clone(),
                     ReloadMode::RestartRequired,
                     |this| {
                         this.status
@@ -389,9 +389,9 @@ impl CockpitNexusModule {
                 self.draw_config_row(
                     ui,
                     "dashboard",
-                    &engram,
+                    &cfg_file,
                     "modules/dashboard/src/config.rs → fenêtre par défaut + seuils d'alerte",
-                    engram_state.clone(),
+                    cfg_state.clone(),
                     ReloadMode::RestartRequired,
                     |this| {
                         this.status
@@ -402,9 +402,9 @@ impl CockpitNexusModule {
                 self.draw_config_row(
                     ui,
                     "todo",
-                    &engram,
+                    &cfg_file,
                     "modules/todo/src/config.rs → filtres par défaut",
-                    engram_state.clone(),
+                    cfg_state.clone(),
                     ReloadMode::RestartRequired,
                     |this| {
                         this.status
@@ -415,9 +415,9 @@ impl CockpitNexusModule {
                 self.draw_config_row(
                     ui,
                     "health",
-                    &engram,
+                    &cfg_file,
                     "modules/health/src/config.rs → rappel de ressenti différé (doc §5.3)",
-                    engram_state,
+                    cfg_state,
                     ReloadMode::RestartRequired,
                     |this| {
                         this.status
@@ -431,7 +431,7 @@ impl CockpitNexusModule {
         ui.add_space(6.0);
         ui.strong("Médicaments");
         ui.weak(
-            "Pas une section de engram.ron : le registre des médicaments vit dans \
+            "Pas une section de Hive_RBMK.ron : le registre des médicaments vit dans \
              nexus.db (table `medications`), pas dans un fichier RON — décision \
              documentée à l'incrément 3 (voir health/README_MODULE.md). Édité \
              directement depuis la fenêtre Santé.",
@@ -547,7 +547,7 @@ mod tests {
     #[test]
     fn probe_ron_file_valide() {
         let dir = tempfile::tempdir().expect("tmp");
-        let path = dir.path().join("engram.ron");
+        let path = dir.path().join("Hive_RBMK.ron");
         std::fs::write(&path, "{}").expect("write");
         let state = probe_ron_file(&path, |raw| {
             ron::from_str::<std::collections::HashMap<String, ron::Value>>(raw)
@@ -560,7 +560,7 @@ mod tests {
     #[test]
     fn probe_ron_file_invalide() {
         let dir = tempfile::tempdir().expect("tmp");
-        let path = dir.path().join("engram.ron");
+        let path = dir.path().join("Hive_RBMK.ron");
         std::fs::write(&path, "ceci n'est pas du ron valide {{{").expect("write");
         let state = probe_ron_file(&path, |raw| {
             ron::from_str::<std::collections::HashMap<String, ron::Value>>(raw)

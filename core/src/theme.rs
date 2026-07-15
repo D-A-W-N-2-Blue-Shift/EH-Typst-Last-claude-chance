@@ -1,9 +1,9 @@
 // ============================================================================
-// core/src/theme.rs — Thème partagé d'Engram_Hive
+// core/src/theme.rs — Thème partagé de Hive_RBMK_Tcherenkov
 //
 // Source unique des couleurs et polices, partagée par tous les modules.
 // Une seule source de vérité : les sections `theme` et `theme_expert` de
-// `engram.ron`.
+// `Hive_RBMK.ron`.
 //
 // À NE PAS confondre avec les configs PAR module (modules/<nom>/). Ici :
 // l'apparence globale. Là-bas : le comportement de chaque module.
@@ -14,7 +14,7 @@
 
 use egui::Color32;
 
-/// Config simple, user-facing (theme.ron).
+/// Config simple, user-facing (section `theme` de Hive_RBMK.ron).
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename = "Theme", default)]
 pub struct ThemeConfig {
@@ -49,7 +49,7 @@ impl Default for ThemeConfig {
     }
 }
 
-/// Config experte, optionnelle (theme_expert de `engram.ron`).
+/// Config experte, optionnelle (theme_expert de `Hive_RBMK.ron`).
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename = "ThemeExpert", default)]
 pub struct ThemeExpert {
@@ -251,7 +251,7 @@ impl Palette {
     }
 
     /// Charge la section `theme` et la section `theme_expert` de
-    /// `engram.ron`. Retourne (palette, erreurs à loguer/afficher).
+    /// `Hive_RBMK.ron`. Retourne (palette, erreurs à loguer/afficher).
     pub fn load(
         _config_dir: &std::path::Path,
         licorne: &crate::licorne::Licorne,
@@ -306,7 +306,7 @@ mod tests {
     #[test]
     fn shipped_expert_model_parses() -> Result<(), Box<dyn std::error::Error>> {
         let sections: std::collections::HashMap<String, ron::Value> =
-            ron::from_str(include_str!("../../config/engram.ron"))?;
+            ron::from_str(include_str!("../../config/Hive_RBMK.ron"))?;
         let e: ThemeExpert = sections
             .get("theme_expert")
             .ok_or("section theme_expert absente")?

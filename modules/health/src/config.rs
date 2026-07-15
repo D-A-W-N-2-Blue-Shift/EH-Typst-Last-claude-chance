@@ -1,12 +1,12 @@
 // ============================================================================
-// modules/health/src/config.rs — Section "health" de engram.ron
+// modules/health/src/config.rs — Section "health" de Hive_RBMK.ron
 //
 // Un seul réglage exposé : activer/désactiver le rappel de ressenti différé
 // (doc §5.3 : « rappel non intrusif, configurable off »). Le délai (3h)
 // N'EST PAS rendu configurable — le doc ne donne qu'un point (« configurable
 // off »), pas une plage réglable ; ajouter un délai réglable serait une
 // donnée inventée (§A2). Mécanisme RÉEL déjà établi (licorne.section, même
-// patron que journal/dashboard/todo) : section nommée de engram.ron.
+// patron que journal/dashboard/todo) : section nommée de Hive_RBMK.ron.
 // ============================================================================
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]

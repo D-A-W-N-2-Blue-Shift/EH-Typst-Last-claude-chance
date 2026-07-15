@@ -58,7 +58,7 @@ pub struct DashboardModule {
     /// Confirmation d'export affichée dans la fenêtre — distincte de
     /// `glados` (erreurs) : un export réussi n'est pas une erreur.
     last_export: Option<String>,
-    /// Section "dashboard" de engram.ron (doc §5.7), chargée à `init()`.
+    /// Section "dashboard" de Hive_RBMK.ron (doc §5.7), chargée à `init()`.
     cfg: config::DashboardConfig,
     glados: Vec<UserError>,
     pending: Vec<ModuleResponse>,

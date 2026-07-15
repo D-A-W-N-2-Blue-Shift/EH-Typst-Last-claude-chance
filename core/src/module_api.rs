@@ -205,10 +205,10 @@ pub struct CoreContext {
     /// ~/.local/share/engram_hive_typst
     pub data_dir: PathBuf,
     /// Thème global résolu (couleurs + polices), source unique d'apparence.
-    /// Chargé depuis theme.ron + section "theme" de engram.ron (legacy
+    /// Chargé depuis theme.ron + section "theme" de Hive_RBMK.ron (legacy
     /// licorne-a-gerber.ron accepté en repli).
     pub theme: crate::theme::Palette,
-    /// Configuration experte unifiée (engram.ron). Chaque module y
+    /// Configuration experte unifiée (Hive_RBMK.ron). Chaque module y
     /// lit sa section via `licorne.section::<SonTypeVomi>("son_nom", &mut errs)`.
     pub licorne: crate::licorne::Licorne,
 }

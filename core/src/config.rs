@@ -1,14 +1,14 @@
 // ============================================================================
-// core/src/config.rs — Registre des modules et chargement de `engram.ron`
+// core/src/config.rs — Registre des modules et chargement de `Hive_RBMK.ron`
 //
-// Le binaire (app/) enregistre des factories par nom. Le fichier
-// ~/.config/engram_hive/engram.ron décide quels modules sont instanciés.
+// Le binaire (app_nexus/) enregistre des factories par nom. Le fichier
+// ~/.config/hive_rbmk_tcherenkov/Hive_RBMK.ron décide quels modules sont instanciés.
 // Le core lui-même ne contient AUCUN nom de module en dur.
 // ============================================================================
 
 use crate::module_api::Module;
 
-/// Section `modules` de `engram.ron` : la LISTE des modules activés.
+/// Section `modules` de `Hive_RBMK.ron` : la LISTE des modules activés.
 ///
 /// `rename = "Modules"` est CRITIQUE : le fichier sérialisé commence par
 /// `Modules(...)` et RON exige que ce nom corresponde au nom serde de la
@@ -24,20 +24,24 @@ impl Default for ModulesConfig {
     fn default() -> Self {
         Self {
             enabled: vec![
-                "file_tree".into(),
-                "editor".into(),
-                "cockpit".into(),
-                "sticky_notes".into(),
+                "nexus_hub".into(),
+                "health".into(),
+                "journal".into(),
+                "todo".into(),
+                "dashboard".into(),
+                "articles".into(),
+                "cockpit_nexus".into(),
             ],
         }
     }
 }
 
 impl ModulesConfig {
-    /// Charge la section `modules` de `engram.ron`.
+    /// Charge la section `modules` de `Hive_RBMK.ron`.
     ///
-    /// Résilient : section absente ou illisible ⇒ base EH5 par défaut,
-    /// avec la colonne vertébrale conservée.
+    /// Résilient : section absente ou illisible ⇒ base par défaut, avec la
+    /// colonne vertébrale conservée (nexus_hub : la fenêtre principale —
+    /// sans elle, aucun projet ne peut être ouvert et l'app est inerte).
     pub fn load_from_licorne(licorne: &crate::licorne::Licorne, registry: &ModuleRegistry) -> Self {
         let mut errors = Vec::new();
         let mut cfg: Self = licorne.section("modules", &mut errors);
@@ -50,7 +54,7 @@ impl ModulesConfig {
         let registered: std::collections::HashSet<&'static str> =
             registry.registered_names().collect();
         let mut enabled = Vec::new();
-        for spine in ["file_tree", "editor", "cockpit"] {
+        for spine in ["nexus_hub"] {
             if registered.contains(spine) {
                 enabled.push(spine.to_string());
             }
@@ -80,7 +84,7 @@ impl ModuleRegistry {
         Self::default()
     }
 
-    /// Enregistre une factory. Appelé par app/src/main.rs uniquement.
+    /// Enregistre une factory. Appelé par app_nexus/src/main.rs uniquement.
     pub fn register(&mut self, name: &'static str, factory: ModuleFactory) {
         self.factories.push((name, factory));
     }
@@ -132,59 +136,84 @@ mod tests {
     }
 
     /// Le scénario du bug devient : la section `modules` relue doit rester
-    /// stable et conserver la colonne vertébrale.
+    /// stable et conserver la colonne vertébrale (nexus_hub d'abord, même
+    /// si l'utilisateur ne l'a pas listé).
     #[test]
     fn load_from_licorne_keeps_spine() -> Result<(), Box<dyn std::error::Error>> {
         let dir = tempfile::tempdir()?;
         std::fs::write(
-            dir.path().join("engram.ron"),
-            r#"{ "modules": Modules(enabled: ["cockpit", "sticky_notes"]) }"#,
+            dir.path().join(crate::licorne::CONFIG_FILE),
+            r#"{ "modules": Modules(enabled: ["cockpit_nexus", "health"]) }"#,
         )?;
         let (licorne, _) = crate::licorne::Licorne::load(dir.path());
         let mut reg = ModuleRegistry::new();
-        reg.register("file_tree", || Box::new(Dummy));
-        reg.register("editor", || Box::new(Dummy));
-        reg.register("cockpit", || Box::new(Dummy));
-        reg.register("sticky_notes", || Box::new(Dummy));
+        reg.register("nexus_hub", || Box::new(Dummy));
+        reg.register("health", || Box::new(Dummy));
+        reg.register("cockpit_nexus", || Box::new(Dummy));
         let c = ModulesConfig::load_from_licorne(&licorne, &reg);
         assert_eq!(
             c.enabled,
             vec![
-                "file_tree".to_string(),
-                "editor".to_string(),
-                "cockpit".to_string(),
-                "sticky_notes".to_string()
+                "nexus_hub".to_string(),
+                "cockpit_nexus".to_string(),
+                "health".to_string()
             ]
         );
         Ok(())
     }
 
     #[test]
-    fn default_modules_section_includes_sticky_notes() {
+    fn default_modules_section_liste_les_modules_hive() {
         let cfg = ModulesConfig::default();
         assert_eq!(
             cfg.enabled,
             vec![
-                "file_tree".to_string(),
-                "editor".to_string(),
-                "cockpit".to_string(),
-                "sticky_notes".to_string()
+                "nexus_hub".to_string(),
+                "health".to_string(),
+                "journal".to_string(),
+                "todo".to_string(),
+                "dashboard".to_string(),
+                "articles".to_string(),
+                "cockpit_nexus".to_string()
             ]
         );
+    }
+
+    /// Un `engram.ron` hérité (nom d'avant le renommage) est migré et relu
+    /// tel quel : aucun réglage perdu.
+    #[test]
+    fn legacy_engram_ron_est_migre_et_lu() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        std::fs::write(
+            dir.path().join("engram.ron"),
+            r#"{ "modules": Modules(enabled: ["health"]) }"#,
+        )?;
+        let (licorne, errs) = crate::licorne::Licorne::load(dir.path());
+        assert!(
+            errs.iter().any(|e| e.contains("migrée")),
+            "la migration doit être annoncée : {errs:?}"
+        );
+        assert!(dir.path().join(crate::licorne::CONFIG_FILE).exists());
+        assert!(!dir.path().join("engram.ron").exists());
+        let mut reg = ModuleRegistry::new();
+        reg.register("health", || Box::new(Dummy));
+        let c = ModulesConfig::load_from_licorne(&licorne, &reg);
+        assert_eq!(c.enabled, vec!["health".to_string()]);
+        Ok(())
     }
 
     #[test]
     fn unknown_modules_are_filtered_out() -> Result<(), Box<dyn std::error::Error>> {
         let dir = tempfile::tempdir()?;
         std::fs::write(
-            dir.path().join("engram.ron"),
-            r#"{ "modules": Modules(enabled: ["editor", "ghost"]) }"#,
+            dir.path().join(crate::licorne::CONFIG_FILE),
+            r#"{ "modules": Modules(enabled: ["health", "ghost"]) }"#,
         )?;
         let (licorne, _) = crate::licorne::Licorne::load(dir.path());
         let mut reg = ModuleRegistry::new();
-        reg.register("editor", || Box::new(Dummy));
+        reg.register("health", || Box::new(Dummy));
         let c = ModulesConfig::load_from_licorne(&licorne, &reg);
-        assert_eq!(c.enabled, vec!["editor".to_string()]);
+        assert_eq!(c.enabled, vec!["health".to_string()]);
         Ok(())
     }
 }
