@@ -131,7 +131,7 @@ pub fn draw_radar(ui: &mut egui::Ui, size: f32, current: Dimensions, average: Op
     for (i, label) in LABELS.iter().enumerate() {
         let angle = std::f32::consts::TAU * (i as f32) / 5.0 - std::f32::consts::FRAC_PI_2;
         let edge = center + egui::vec2(angle.cos(), angle.sin()) * radius;
-        painter.line_segment([center, edge], egui::Stroke::new(1.0, axis_color));
+        painter.line_segment([center, edge], egui::Stroke::new(1.0_f32, axis_color));
         let label_pos = center + egui::vec2(angle.cos(), angle.sin()) * (radius + 16.0);
         painter.text(
             label_pos,
@@ -146,7 +146,7 @@ pub fn draw_radar(ui: &mut egui::Ui, size: f32, current: Dimensions, average: Op
         let pts: Vec<egui::Pos2> = (0..5).map(|i| point_for(f64::from(ring), i)).collect();
         painter.add(egui::Shape::closed_line(
             pts,
-            egui::Stroke::new(0.5, axis_color.gamma_multiply(0.5)),
+            egui::Stroke::new(0.5_f32, axis_color.gamma_multiply(0.5)),
         ));
     }
 
@@ -155,14 +155,14 @@ pub fn draw_radar(ui: &mut egui::Ui, size: f32, current: Dimensions, average: Op
         let pts: Vec<egui::Pos2> = (0..5).map(|i| point_for(vals[i], i)).collect();
         painter.add(egui::Shape::closed_line(
             pts,
-            egui::Stroke::new(1.5, average_color),
+            egui::Stroke::new(1.5_f32, average_color),
         ));
     }
     let vals = current.as_array();
     let pts: Vec<egui::Pos2> = (0..5).map(|i| point_for(vals[i], i)).collect();
     painter.add(egui::Shape::closed_line(
         pts,
-        egui::Stroke::new(2.0, current_color),
+        egui::Stroke::new(2.0_f32, current_color),
     ));
 }
 

@@ -93,7 +93,10 @@ pub fn show(ctx: &egui::Context, state: &mut PaletteState) -> Option<PaletteActi
             .frame(
                 egui::Frame::new()
                     .fill(egui::Color32::from_rgb(8, 8, 12))
-                    .stroke(egui::Stroke::new(1.0, egui::Color32::from_rgb(123, 0, 255)))
+                    .stroke(egui::Stroke::new(
+                        1.0_f32,
+                        egui::Color32::from_rgb(123, 0, 255),
+                    ))
                     .inner_margin(egui::Margin::same(14)),
             )
             .show(ctx, |ui| {
