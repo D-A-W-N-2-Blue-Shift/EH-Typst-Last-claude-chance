@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS task_history (
     changed_at     TEXT NOT NULL
 );
 
--- journal_entries : index d'une entrée quotidienne (le .typst est la source).
+-- journal_entries : index d'une entrée quotidienne (le fichier .md — ou .typst hérité — est la source).
 CREATE TABLE IF NOT EXISTS journal_entries (
     id          TEXT PRIMARY KEY,
     date        TEXT NOT NULL UNIQUE,
@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS journal_entries (
     tags        TEXT NOT NULL DEFAULT '[]'
 );
 
--- articles : index d'un article (le .typst est la source).
+-- articles : index d'un article (le fichier .md — ou .typst hérité — est la source).
 CREATE TABLE IF NOT EXISTS articles (
     id           TEXT PRIMARY KEY,
     file_path    TEXT NOT NULL UNIQUE,

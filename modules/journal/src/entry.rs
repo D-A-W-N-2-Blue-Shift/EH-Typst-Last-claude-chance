@@ -1,30 +1,53 @@
 // ============================================================================
 // modules/journal/src/entry.rs — Logique pure d'une entrée de journal
 //
-// Chemin canonique 01_journal/YYYY/YYYY-MM-DD.typst (doc §5.2), template
-// configurable via la section "journal" de Hive_RBMK.ron (config.rs) — `
-// DEFAULT_TEMPLATE` ici est la valeur par défaut de cette section, pas un
-// gabarit figé. Frontmatter YAML minimal (même convention que le reste de
-// l'écosystème Typst du projet : bloc `---`), parsing manuel — pas de
-// dépendance serde_yaml pour un besoin aussi restreint (§7.4).
+// Markdown-first (brief « fallback total Typst → Markdown », 15/07/2026) :
+// toute NOUVELLE entrée est créée en 01_journal/YYYY/YYYY-MM-DD.md avec un
+// gabarit Markdown. Une entrée .typst héritée (projet d'avant le fallback)
+// reste ouverte et éditée TELLE QUELLE — jamais convertie, renommée ni
+// écrasée ; si les deux extensions existent pour la même date, le .md (la
+// copie de travail Markdown) est prioritaire. Frontmatter YAML (bloc `---`),
+// parsing manuel — identique dans les deux formats.
 // ============================================================================
 
 use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
 
-/// Chemin du fichier d'une date donnée (utilisé pour aujourd'hui ET pour la
-/// navigation depuis la sidebar).
-pub fn path_for(root: &Path, date: NaiveDate) -> PathBuf {
-    root.join("01_journal")
-        .join(date.format("%Y").to_string())
-        .join(format!("{}.typst", date.format("%Y-%m-%d")))
+fn dir_for(root: &Path, date: NaiveDate) -> PathBuf {
+    root.join("01_journal").join(date.format("%Y").to_string())
 }
 
-/// Gabarit par défaut d'une nouvelle entrée — utilisé par
+/// Chemin de CRÉATION d'une entrée (Markdown, format principal).
+pub fn path_for(root: &Path, date: NaiveDate) -> PathBuf {
+    dir_for(root, date).join(format!("{}.md", date.format("%Y-%m-%d")))
+}
+
+/// Chemin hérité (.typst) d'une date — n'est plus jamais créé, seulement
+/// détecté pour ouvrir les projets d'avant le fallback sans y toucher.
+pub fn legacy_path_for(root: &Path, date: NaiveDate) -> PathBuf {
+    dir_for(root, date).join(format!("{}.typst", date.format("%Y-%m-%d")))
+}
+
+/// Résout le fichier à OUVRIR pour une date : `.md` s'il existe (priorité
+/// Markdown-first), sinon `.typst` hérité s'il existe (ouvert tel quel),
+/// sinon le chemin `.md` à créer.
+pub fn resolve_path_for(root: &Path, date: NaiveDate) -> PathBuf {
+    let md = path_for(root, date);
+    if md.exists() {
+        return md;
+    }
+    let legacy = legacy_path_for(root, date);
+    if legacy.exists() {
+        return legacy;
+    }
+    md
+}
+
+/// Gabarit par défaut d'une nouvelle entrée (Markdown) — utilisé par
 /// `config::JournalConfig::default()` quand aucune section "journal" n'est
 /// présente dans Hive_RBMK.ron. `{date}` est le seul placeholder reconnu.
-pub const DEFAULT_TEMPLATE: &str = "---\ntags: []\n---\n\n= Journal — {date}\n\n";
+pub const DEFAULT_TEMPLATE: &str = "---\ntags: []\n---\n\n# Journal — {date}\n\n";
 
 /// Substitue `{date}` (YYYY-MM-DD) dans `template`. Un gabarit sans le
 /// marqueur est retourné tel quel — jamais d'erreur (§7.5 : la
@@ -96,12 +119,36 @@ mod tests {
     }
 
     #[test]
-    fn path_for_forme_attendue() {
+    fn path_for_cree_en_markdown() {
         let root = Path::new("/tmp/projet");
         assert_eq!(
             path_for(root, date("2026-07-12")),
-            PathBuf::from("/tmp/projet/01_journal/2026/2026-07-12.typst")
+            PathBuf::from("/tmp/projet/01_journal/2026/2026-07-12.md")
         );
+    }
+
+    #[test]
+    fn resolve_prefere_md_puis_typst_herite_puis_creation_md(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let tmp = tempfile::tempdir()?;
+        let root = tmp.path();
+        let d = date("2026-07-12");
+        // Rien n'existe → création .md.
+        assert_eq!(resolve_path_for(root, d), path_for(root, d));
+        // Seul le .typst hérité existe → on l'ouvre TEL QUEL.
+        std::fs::create_dir_all(dir_for(root, d))?;
+        std::fs::write(legacy_path_for(root, d), "ancien contenu typst")?;
+        assert_eq!(resolve_path_for(root, d), legacy_path_for(root, d));
+        // Les deux existent → priorité Markdown.
+        std::fs::write(path_for(root, d), "copie markdown")?;
+        assert_eq!(resolve_path_for(root, d), path_for(root, d));
+        Ok(())
+    }
+
+    #[test]
+    fn default_template_est_markdown_pas_typst() {
+        assert!(DEFAULT_TEMPLATE.contains("# Journal"));
+        assert!(!DEFAULT_TEMPLATE.contains("= "));
     }
 
     #[test]

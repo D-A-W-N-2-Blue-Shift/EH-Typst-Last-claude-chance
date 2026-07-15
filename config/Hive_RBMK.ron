@@ -56,7 +56,7 @@
 
     // Gabarit de création d'une entrée de journal. {date} → YYYY-MM-DD.
     "journal": (
-        template: "---\ntags: []\n---\n\n= {date}\n\n",
+        template: "---\ntags: []\n---\n\n# {date}\n\n",
     ),
 
     // Fenêtres temporelles et seuils d'alerte du dashboard.

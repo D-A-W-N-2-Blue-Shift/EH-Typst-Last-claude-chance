@@ -19,6 +19,7 @@ pub mod ipc;
 pub mod licorne;
 mod module_api;
 pub mod theme;
+pub mod typst_fallback;
 
 pub use backup::{BackupConfig, BackupHandle};
 pub use config::{ModuleRegistry, ModulesConfig};

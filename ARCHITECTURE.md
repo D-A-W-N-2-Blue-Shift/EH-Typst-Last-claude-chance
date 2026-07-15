@@ -12,6 +12,12 @@
 > (elle n'est plus « seconde » : c'est la seule). L'outil `nexus_inspect` a
 > été retiré (décision architecte). Le fichier de configuration unique est
 > `Hive_RBMK.ron` (ex-`engram.ron`, migré automatiquement au lancement).
+> **Markdown-first** (brief fallback 15/07/2026) : toute nouvelle création
+> narrative est en `.md` ; les `.typst` hérités restent ouvrables tels
+> quels, jamais convertis automatiquement — une commande explicite « Créer
+> une copie Markdown » produit `nom.md` + un rapport sans toucher
+> l'original (voir `TYPST_TO_MARKDOWN_FALLBACK_AUDIT.md` et
+> `ENGRAM_FULL_TYPST_TO_MARKDOWN_FALLBACK_REPORT.md`).
 
 ## Vue d'ensemble
 

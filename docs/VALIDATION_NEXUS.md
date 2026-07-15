@@ -31,8 +31,8 @@ une machine avec écran (Fedora ou équivalent Wayland/X11) pour fermer cet
 - **Prérequis** : le dossier existe et est accessible en écriture (ou
   n'existe pas encore — `canonicalize` échoue alors, voir erreurs).
 - **Résultat attendu** : le dossier contient exactement
-  `01_journal/`, `02_sante/{medicaments.typst,notes_sante.typst}`,
-  `03_todo/{backlog.typst,archive/}`, `04_articles/`, `05_reference/`,
+  `01_journal/`, `02_sante/{medicaments.md,notes_sante.md}`,
+  `03_todo/{backlog.md,archive/}`, `04_articles/`, `05_reference/`,
   `.engram/nexus.db`. Le hub affiche « nexus.db : 10/10 tables présentes ».
 - **Erreurs possibles** : « Dossier introuvable » si le chemin n'existe pas
   du tout (créer le dossier lui-même avant, ou utiliser un chemin absolu) ;
@@ -120,7 +120,7 @@ une machine avec écran (Fedora ou équivalent Wayland/X11) pour fermer cet
 
 - **Action** : ouvrir Journal (bouton hub ou `Ctrl+Shift+J` depuis
   n'importe quelle fenêtre).
-- **Résultat attendu** : le fichier `01_journal/AAAA/AAAA-MM-JJ.typst` du
+- **Résultat attendu** : le fichier `01_journal/AAAA/AAAA-MM-JJ.md` du
   jour courant s'ouvre automatiquement, créé depuis le gabarit si absent.
 - **Raison diagnostique** : re-cliquer `Ctrl+Shift+J` doit BASCULER
   (toggle) la fenêtre, pas en ouvrir une seconde.
@@ -197,7 +197,7 @@ une machine avec écran (Fedora ou équivalent Wayland/X11) pour fermer cet
 - **Action** : créer un article titré « Test ». Retourner à la liste, créer
   un SECOND article titré exactement « Test » à nouveau.
 - **Résultat attendu** : 2 fichiers distincts dans `04_articles/`
-  (`test.typst` et `test_2.typst`), 2 lignes dans la liste.
+  (`test.md` et `test_2.md`), 2 lignes dans la liste.
 - **Raison diagnostique** : si le second écrase le premier, la
   désambiguïsation de `create_new` a régressé.
 

@@ -132,7 +132,9 @@ impl JournalModule {
         if self.loaded && self.current_date != date {
             self.save_current(db);
         }
-        let path = entry::path_for(root, date);
+        // Markdown-first : `.md` prioritaire, `.typst` hérité ouvert tel
+        // quel, création (si rien n'existe) toujours en `.md`.
+        let path = entry::resolve_path_for(root, date);
         if !path.exists() {
             if let Some(parent) = path.parent() {
                 if let Err(e) = std::fs::create_dir_all(parent) {
@@ -218,6 +220,61 @@ impl JournalModule {
         }
     }
 
+    fn current_is_legacy_typst(&self) -> bool {
+        self.current_path
+            .as_deref()
+            .and_then(|p| p.extension())
+            .is_some_and(|e| e == "typst")
+    }
+
+    /// Brief Phase 6 — « Créer une copie Markdown depuis ce fichier Typst ».
+    /// Convertit le BUFFER courant (ce que l'utilisateur voit), écrit
+    /// `<date>.md` + `<date>.typ-to-md-report.md`, bascule l'édition sur la
+    /// copie. L'original `.typst` n'est jamais réécrit ni supprimé.
+    fn create_md_copy(&mut self, db: &nexus_db::Connection) {
+        let Some(src) = self.current_path.clone() else {
+            return;
+        };
+        let dst = src.with_extension("md");
+        if dst.exists() {
+            self.glados(
+                format!("{} existe déjà — copie refusée.", dst.display()),
+                "pas d'écrasement de copie existante",
+            );
+            return;
+        }
+        let out = engram_core::typst_fallback::typst_to_md_safe(&self.content);
+        if let Err(e) = engram_core::atomic_write(&dst, out.markdown.as_bytes()) {
+            self.glados(format!("Impossible de créer {}.", dst.display()), e);
+            return;
+        }
+        let report_path = src.with_extension("typ-to-md-report.md");
+        let report = engram_core::typst_fallback::conversion_report(
+            &src.file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            &dst.file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            &out,
+        );
+        if let Err(e) = engram_core::atomic_write(&report_path, report.as_bytes()) {
+            self.glados(
+                format!(
+                    "Copie créée mais rapport impossible ({}).",
+                    report_path.display()
+                ),
+                e,
+            );
+        }
+        // Bascule sur la copie : elle devient le fichier de travail (le
+        // resolve Markdown-first la retrouvera aussi aux prochaines
+        // ouvertures). Sauvegarde immédiate = index DB + FTS sur le .md.
+        self.content = out.markdown;
+        self.current_path = Some(dst);
+        self.save_current(db);
+    }
+
     fn draw(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             if !self.glados.is_empty() {
@@ -299,6 +356,25 @@ impl JournalModule {
                             .map(|p| p.display().to_string())
                             .unwrap_or_default(),
                     );
+                    // Brief Phases 4-6 : une entrée héritée .typst reste
+                    // éditée telle quelle ; la bascule vers Markdown est une
+                    // ACTION EXPLICITE qui crée une copie, jamais l'inverse.
+                    if self.current_is_legacy_typst() {
+                        ui.horizontal_wrapped(|ui| {
+                            ui.weak("Typst — secondaire.");
+                            if ui
+                                .button("Créer une copie Markdown")
+                                .on_hover_text(
+                                    "Crée une copie .md convertie (structures sûres \
+                                     uniquement) + un rapport. L'original .typst n'est \
+                                     JAMAIS modifié.",
+                                )
+                                .clicked()
+                            {
+                                self.create_md_copy(&db);
+                            }
+                        });
+                    }
                     ui.add_space(6.0);
                     let response = ui.add(
                         egui::TextEdit::multiline(&mut self.content)
@@ -424,5 +500,88 @@ mod tests {
         m.save_current(&db);
         let hits = nexus_db::fts_search(&db, "brouillard", 10).expect("search");
         assert_eq!(hits.len(), 1);
+    }
+
+    #[test]
+    fn nouvelle_entree_creee_en_markdown_sans_compagnon_typst() {
+        let dir = tempfile::tempdir().expect("tmp");
+        let root = dir.path();
+        let db = nexus_db::open_in_memory().expect("db");
+        let mut m = JournalModule {
+            project_root: Some(root.to_path_buf()),
+            ..JournalModule::default()
+        };
+        let d = chrono::NaiveDate::from_ymd_opt(2026, 7, 15).expect("date");
+        m.switch_to_date(&db, root, d);
+        assert!(entry::path_for(root, d).is_file(), ".md attendu");
+        assert!(
+            !entry::legacy_path_for(root, d).exists(),
+            "aucun compagnon .typst ne doit être créé"
+        );
+        let created = std::fs::read_to_string(entry::path_for(root, d)).expect("read");
+        assert!(
+            created.contains("# Journal — 2026-07-15"),
+            "gabarit Markdown"
+        );
+    }
+
+    #[test]
+    fn entree_typst_heritee_ouverte_telle_quelle_octets_intacts() {
+        let dir = tempfile::tempdir().expect("tmp");
+        let root = dir.path();
+        let db = nexus_db::open_in_memory().expect("db");
+        let d = chrono::NaiveDate::from_ymd_opt(2026, 7, 10).expect("date");
+        let legacy = entry::legacy_path_for(root, d);
+        std::fs::create_dir_all(legacy.parent().expect("parent")).expect("mkdir");
+        let original = "---\ntags: [ancien]\n---\n\n= Journal — 2026-07-10\n\nContenu hérité.\n";
+        std::fs::write(&legacy, original).expect("write");
+
+        let mut m = JournalModule {
+            project_root: Some(root.to_path_buf()),
+            ..JournalModule::default()
+        };
+        m.switch_to_date(&db, root, d);
+        assert_eq!(m.current_path.as_deref(), Some(legacy.as_path()));
+        // Ouverture = lecture seule : octets STRICTEMENT identiques, aucun
+        // .md compagnon créé en silence.
+        assert_eq!(std::fs::read_to_string(&legacy).expect("read"), original);
+        assert!(!entry::path_for(root, d).exists());
+    }
+
+    #[test]
+    fn copie_markdown_explicite_convertit_et_preserve_loriginal() {
+        let dir = tempfile::tempdir().expect("tmp");
+        let root = dir.path();
+        let db = nexus_db::open_in_memory().expect("db");
+        let d = chrono::NaiveDate::from_ymd_opt(2026, 7, 10).expect("date");
+        let legacy = entry::legacy_path_for(root, d);
+        std::fs::create_dir_all(legacy.parent().expect("parent")).expect("mkdir");
+        let original = "---\ntags: []\n---\n\n= Journal — 2026-07-10\n\nProse.\n#let x = 1\n";
+        std::fs::write(&legacy, original).expect("write");
+
+        let mut m = JournalModule {
+            project_root: Some(root.to_path_buf()),
+            ..JournalModule::default()
+        };
+        m.switch_to_date(&db, root, d);
+        m.create_md_copy(&db);
+
+        // Original intact au octet près.
+        assert_eq!(std::fs::read_to_string(&legacy).expect("read"), original);
+        // Copie convertie (titre Markdown, code typst balisé).
+        let md = std::fs::read_to_string(entry::path_for(root, d)).expect("copie");
+        assert!(md.contains("# Journal — 2026-07-10"));
+        assert!(md.contains("ENGRAM_TYPST_UNCONVERTED_BEGIN"));
+        assert!(md.contains("#let x = 1"));
+        // Rapport généré, édition basculée sur la copie.
+        assert!(legacy.with_extension("typ-to-md-report.md").is_file());
+        assert_eq!(
+            m.current_path.as_deref(),
+            Some(entry::path_for(root, d).as_path())
+        );
+        // Refus de ré-écraser une copie existante.
+        m.current_path = Some(legacy.clone());
+        m.create_md_copy(&db);
+        assert!(!m.glados.is_empty(), "copie existante → refus signalé");
     }
 }
