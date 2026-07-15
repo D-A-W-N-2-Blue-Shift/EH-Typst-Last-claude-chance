@@ -63,7 +63,7 @@ propre `ModuleRegistry`, avec ses propres modules sous `modules/` (noms
 distincts, zéro chevauchement avec le registre écrivain).
 
 ```
-app_nexus/            binaire nexus : CoreContext propre, palette + Redrop
+app_nexus/            binaire Hive_RBMK_Tcherenkov : CoreContext propre, palette + Redrop
                        globaux (pas des modules — doc de conception §2)
 nexus_db/              couche de données SQLite partagée par tous les
                        modules Nexus (schéma doc §8) — PAS un module

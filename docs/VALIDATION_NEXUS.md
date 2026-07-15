@@ -17,7 +17,7 @@ une machine avec écran (Fedora ou équivalent Wayland/X11) pour fermer cet
 - `wayland-devel` (Fedora) ou `libwayland-dev` (Debian) installé.
 - `cargo build --workspace` termine sans erreur (déjà prouvé en headless à
   chaque incrément — revérifier sur la machine cible avant de commencer).
-- Binaires : `target/debug/nexus` et `target/debug/nexus_inspect`.
+- Binaires : `target/debug/Hive_RBMK_Tcherenkov` et `target/debug/nexus_inspect`.
 - Un dossier vide et accessible en écriture pour servir de projet de test.
 
 ---
@@ -26,7 +26,7 @@ une machine avec écran (Fedora ou équivalent Wayland/X11) pour fermer cet
 
 ### 1.1 Création d'un nouveau projet
 
-- **Action** : lancer `./target/debug/nexus`, saisir le chemin d'un dossier
+- **Action** : lancer `./target/debug/Hive_RBMK_Tcherenkov`, saisir le chemin d'un dossier
   vide dans le champ, cliquer « ✨ Nouveau (créer la structure) ».
 - **Prérequis** : le dossier existe et est accessible en écriture (ou
   n'existe pas encore — `canonicalize` échoue alors, voir erreurs).
@@ -44,7 +44,7 @@ une machine avec écran (Fedora ou équivalent Wayland/X11) pour fermer cet
 
 ### 1.2 Ré-ouverture d'un projet existant
 
-- **Action** : fermer `nexus`, le relancer, saisir le MÊME chemin, cliquer
+- **Action** : fermer `Hive_RBMK_Tcherenkov`, le relancer, saisir le MÊME chemin, cliquer
   « 📂 Ouvrir » (pas « Nouveau »).
 - **Prérequis** : le projet 1.1 existe déjà.
 - **Résultat attendu** : même statut « 10/10 tables présentes », aucune
@@ -249,7 +249,7 @@ une machine avec écran (Fedora ou équivalent Wayland/X11) pour fermer cet
 
 ### 8.2 Intégrité — détection réelle
 
-- **Action** : avec `nexus` FERMÉ (pour éviter un conflit d'écriture),
+- **Action** : avec `Hive_RBMK_Tcherenkov` FERMÉ (pour éviter un conflit d'écriture),
   supprimer manuellement un fichier journal indexé (`rm
   <projet>/01_journal/AAAA/AAAA-MM-JJ.typst` pour une date déjà indexée).
   Ouvrir `nexus_inspect` → onglet Intégrité.

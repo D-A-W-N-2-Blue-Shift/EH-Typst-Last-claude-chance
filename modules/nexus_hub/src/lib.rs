@@ -14,8 +14,9 @@
 //
 // Comment je marche : EmbeddedInCore, comme file_tree côté écrivain — je ne
 // possède pas de fenêtre OS propre, je me dessine dans un panel fourni par
-// le binaire nexus. Je ne parle au core QUE via ModuleResponse (règle
-// d'étanchéité §7 de la doctrine). Le bouton Redrop du hub pousse un
+// le binaire Hive_RBMK_Tcherenkov. Je ne parle au core QUE via
+// ModuleResponse (règle d'étanchéité §7 de la doctrine). Le bouton Redrop
+// du hub pousse un
 // ModuleResponse::OpenPaletteRequested — je ne sais pas ouvrir le popup
 // Redrop moi-même (il vit dans app_nexus, le shell, doc §2 : « Redrop n'est
 // pas un module »), donc je ne fais que déclencher la palette qui, elle,
